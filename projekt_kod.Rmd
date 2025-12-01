@@ -50,7 +50,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Cel projektu
 
-Celem projektu jest wielowymiarowa analiza porównawcza kondycji rynków pracy w wybranych gospodarkach świata w roku 2023 (lub ostatnim dostępnym). Badanie ma na celu skonstruowanie syntetycznego wskaźnika **"Jakości Pracy i Inkluzji Społecznej"** (Quality of Work & Inclusion Index), który pozwoli na stworzenie rankingu krajów pod kątem stabilności zatrudnienia, efektywności wykorzystania kapitału ludzkiego oraz obciążenia pracą.
+Celem projektu jest wielowymiarowa analiza porównawcza kondycji rynków pracy w wybranych gospodarkach świata. Badanie ma na celu skonstruowanie syntetycznego wskaźnika **"Jakości Pracy i Inkluzji Społecznej"**, który pozwoli na stworzenie rankingu krajów pod kątem stabilności zatrudnienia, efektywności wykorzystania kapitału ludzkiego oraz obciążenia pracą.
 
 Dodatkowym celem jest weryfikacja, czy wysoka wydajność gospodarcza (mierzona PKB na pracownika) jest tożsama z wysoką jakością warunków pracy, czy też istnieją modele gospodarcze oparte na wysokiej efektywności, ale niskim bezpieczeństwie socjalnym pracowników. Analiza obejmuje również próby wyodrębnienia (klasteryzacji) grup krajów o podobnych profilach strukturalnych rynku pracy.
 
@@ -111,8 +111,10 @@ Te kolumny służą do identyfikacji obiektu badania i nie biorą bezpośrednieg
     -   **Jednostka:** Tysiące godzin.
 -   **`obs_value_informal` (Zatrudnienie w szarej strefie)**
     -   **Definicja:** Odsetek pracujących w gospodarce nieformalnej.
-    -   **Jednostka:** % (Procent).
-------------------------------------------------------------------------
+
+    -   
+
+        ## **Jednostka:** % (Procent).
 
 ### 3. Zmienne kontekstowe (Wolność Gospodarcza - Heritage Foundation)
 
@@ -167,7 +169,7 @@ df <- read.csv("dane_final.csv")
 
 # Wstępna analiza danych
 
-### Struktura danych oraz podstawowe statystyki
+## Struktura danych oraz podstawowe statystyki
 
 ```{r,results='asis', echo=FALSE, eval=TRUE}
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -233,7 +235,9 @@ knitr::kable(statystyki_numeryczne, booktabs = TRUE,  caption = "Struktura danyc
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
 ```
 
-### Braki w danych
+## Identyfikacja braków w danych
+
+### Wszystkie zmienne
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -260,11 +264,66 @@ Przeprowadzona analiza kompletności zbioru danych (z wykorzystaniem funkcji `gg
 
 -   **Problematyczna zmienna "Szara strefa" (`obs_value_informal`)** Zmienna dotycząca zatrudnienia w gospodarce nieformalnej wykazuje braki na poziomie ponad 20%. Jest to sygnał, że dane te mogą nie być raportowane systematycznie przez wszystkie kraje.
 
--   **Zmienne kontekstowe (Wolność gospodarcza)** Grupa wskaźników pochodzących z *Heritage Foundation* (m.in. `Government.Spending`, `Tax.Burden`, `Property.Rights`) wykazuje umiarkowany poziom braków (ok. 10-15%). Sugeruje to, że dla części krajów lub lat w badanym okresie (2015-2023) indeks ten nie został obliczony. 
+-   **Zmienne kontekstowe (Wolność gospodarcza)** Grupa wskaźników pochodzących z *Heritage Foundation* (m.in. `Government.Spending`, `Tax.Burden`, `Property.Rights`) wykazuje umiarkowany poziom braków (ok. 10-15%). Sugeruje to, że dla części krajów lub lat w badanym okresie (2015-2023) indeks ten nie został obliczony.
 
 **Wysoka jakość kluczowych zmiennych diagnostycznych** Najważniejszym wnioskiem z analizy jest **bardzo wysoka kompletność zmiennych rynku pracy**, które zostały wytypowane do budowy głównego wskaźnika syntetycznego: \* `obs_value_unempl_rate` (Stopa bezrobocia) -- braki bliskie 0%. \* `obs_value_PKB` (Wydajność/PKB) -- braki poniżej 5%. \* `obs_value_NEET` -- braki poniżej 10%.
 
-### Wartości odstające oraz rozkła danych
+### W zależności od kraju
+
+```{r echo=FALSE, eval=TRUE, results='asis', fig.height=6, fig.width=7}
+library(dplyr)
+library(ggplot2)
+
+df_missing_kraje <- df %>%
+  group_by(ref_area) %>%
+  summarise(
+    missing_count = sum(is.na(across(everything()))),
+    # Używamy c_across wewnątrz rowwise lub po prostu standardowej logiki dla całej ramki
+    # Poniższa logika zakłada, że 'across' zadziała poprawnie w Twojej wersji dplyr
+    missing_percent = round(mean(is.na(across(everything()))) * 100, 2)
+  ) %>%
+  arrange(desc(missing_percent))
+
+ggplot(df_missing_kraje, aes(x = reorder(ref_area, missing_percent), y = missing_percent)) +
+  # Tworzenie słupków
+  geom_col(fill = "steelblue", alpha = 0.8) +
+  
+  # Dodanie etykiet z wartościami na końcach słupków (opcjonalne, ale pomocne)
+  geom_text(aes(label = paste0(missing_percent, "%")), 
+            hjust = -0.2, size = 3.5, color = "black") +
+  
+  # Obrócenie wykresu poziomo (lepiej widać nazwy krajów/obszarów)
+  coord_flip() +
+  
+  # Opisy osi i tytuł
+  labs(
+    title = "Procent braków danych wg obszaru",
+    x = "Obszar (ref_area)",
+    y = "Procent brakujących danych (%)"
+  ) +
+
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold")) +
+  expand_limits(y = max(df_missing_kraje$missing_percent) * 1.1)
+
+```
+
+Zbiór danych jest wyraźnie podzielony na dwie grupy: kraje z krytycznymi brakami danych oraz kraje z wysoką kompletnością informacji.
+
+1.  **Grupa z krytycznymi brakami (>60%):**
+    Na szczycie znajdują się mikropaństwa (**San Marino, Monako** – ponad 80% braków), co jest typowe w statystyce międzynarodowej. Jednak niepokojąca jest obecność dużych gospodarek w tej grupie: **Wielkiej Brytanii, Rosji czy Czech** (60-65% braków). Tak wysoki odsetek pustych wartości prawdopodobnie wyklucza te kraje z wiarygodnej analizy porównawczej.
+
+2.  **Grupa "stabilna" (<7%):**
+    Zdecydowana większość analizowanych krajów (od Czarnogóry w dół) posiada kompletność danych na poziomie powyżej 93%.
+
+3.  **Systematyczny błąd (Wartość 2.12%):**
+    Zwraca uwagę fakt, że ogromna liczba państw (od Turcji aż do Austrii) ma identyczny wynik braków: **2.12%**. To nie jest przypadek.
+    * **Interpretacja:** Sugeruje to **systematyczny brak danych**, np. jedna konkretna zmienna nie jest raportowana dla całej tej grupy krajów lub brakuje danych za jeden konkretny rok w szeregu czasowym.
+
+
+## Wartości odstające oraz rozkład danych
+
+### Wykresy skrzypcowe
 
 ```{r echo=FALSE, fig.height=4, fig.width=6, message=FALSE, warning=FALSE}
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -293,7 +352,7 @@ ggplot(df_hist, aes(x = Zmienna, y = Wartosc, fill = Zmienna)) +
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
 ```
 
-#### Interpreacja:
+*Interpreacja*:
 
 -   **Stopa bezrobocia (`Bezrobocie`)**:
 
@@ -318,6 +377,8 @@ ggplot(df_hist, aes(x = Zmienna, y = Wartosc, fill = Zmienna)) +
     -   **Wartości ekstremalne:** Bardzo długa "szyjka" wskazuje na obecność "liderów wydajności" których wyniki drastycznie odbiegają od średniej europejskiej.
 
 **Wnioski metodyczne dla budowy rankingu:** Wszystkie trzy zmienne diagnostyczne charakteryzują się brakiem rozkładu normalnego i występowaniem silnej asymetrii prawostronnej. Oznacza to, że: konieczna jest normalizacja zmiennych aby sprowadzić je do porównywalnej skali i zniwelować wpływ wartości odstających (szczególnie w przypadku PKB) na finalny wynik.
+
+## Korelacja zmiennych kluczowych
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=5, fig.width=5}
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -344,7 +405,7 @@ corrplot(M, method = "color", type = "upper",
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
 ```
 
-#### Interpreacja:
+*Interpreacja*:
 
 W celu zbadania siły i kierunku współzależności między potencjalnymi zmiennymi diagnostycznymi (Bezrobocie, NEET, PKB) oraz zmienną kontekstową (Wolność Gospodarcza), wyznaczono macierz korelacji liniowej Pearsona. Analiza wykresu (mapy ciepła) pozwala na sformułowanie następujących wniosków:
 
@@ -362,19 +423,98 @@ W celu zbadania siły i kierunku współzależności między potencjalnymi zmien
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
+library(GGally)
 
+df_diag <- df %>%
+  select(
+    obs_value_unempl_rate,
+    obs_value_NEET,
+    obs_value_PKB
+  )
+
+GGally::ggpairs(
+  df_diag,
+  title = "Analiza nieliniowych współzależności"
+)
+
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+
+
+#### 1. Wykres braków danych (Bar Plot)
+Ten wykres ujawnia **krytyczny podział jakości danych** w Twoim zbiorze:
+
+* **Grupa do odrzucenia (>60% braków):** Kraje takie jak **San Marino, Monako, UK, Rosja, Mołdawia i Czechy** mają drastycznie wysoki odsetek braków danych (od 62% do 81%). Wnioskowanie statystyczne na ich podstawie będzie obarczone ogromnym błędem. Zaleca się usunięcie tych obserwacji ze zbioru.
+* **Systematyczny brak (2.12%):** Ogromna grupa państw (od Turcji do Austrii) posiada identyczny odsetek braków wynoszący **2.12%**. Sugeruje to **błąd strukturalny** – prawdopodobnie dla wszystkich tych krajów brakuje danych z jednego konkretnego roku lub jednej specyficznej zmiennej (kolumny).
+* **Wniosek:** Zbiór jest niejednorodny. Należy usunąć kraje z góry wykresu i sprawdzić, która zmienna generuje stały błąd 2.12% dla reszty.
+
+---
+
+#### 2. Analiza współzależności (Macierz korelacji / Scatterplots)
+Wykres przedstawia relacje między stopą bezrobocia (`unempl_rate`), wskaźnikiem NEET i PKB (`PKB`).
+
+* **Silna dodatnia korelacja (0.650\*\*\*) między Bezrobociem a NEET:**
+    Jest to zależność oczekiwana i liniowa. Wzrost stopy bezrobocia pociąga za sobą wyraźny wzrost odsetka młodzieży nieuczącej się i niepracującej. Wykres punktowy (lewy środkowy panel) pokazuje jednak dużą wariancję – przy tym samym bezrobociu wskaźnik NEET może być różny, co zależy od polityki socjalnej danego kraju.
+* **Ujemny wpływ PKB na problemy społeczne:**
+    Zamożność kraju (PKB) koreluje ujemnie z problemami rynku pracy.
+    * Silniejszy związek widać przy **NEET (-0.478\*\*\*)**: Wyższe PKB skuteczniej "chroni" przed zjawiskiem NEET niż przed samym bezrobociem.
+    * Słabszy związek przy **Bezrobociu (-0.246\*\*\*)**: Samo wysokie PKB nie gwarantuje niskiego bezrobocia (zależność jest słaba).
+* **Nieliniowość i rozkłady (Przekątna i doły):**
+    * **Rozkład PKB (prawy dolny róg)** jest **bimodalny** (ma dwa "garby"). Wskazuje to na istnienie dwóch klastrów krajów w zbiorze: grupy państw "biedniejszych" i grupy "bogatszych".
+    * Wykresy punktowe z PKB (dolny rząd) mają kształt litery "L" (hiperboliczny). Oznacza to, że po przekroczeniu pewnego progu zamożności, wskaźniki NEET i bezrobocia stabilizują się na niskim poziomie, ale w krajach biedniejszych ich rozrzut jest ogromny.
+
+
+
+
+## Czyszczenie braków danych (Cleaning) oraz uzupełnianie
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+df_clean <- df %>% filter(sex == "Total")
+
+# 2. Usuwanie KOLUMN z dużą liczbą braków (np. > 30% w całym zbiorze)
+
+limit_brakow_kolumny <- 0.3
+df_clean <- df_clean[, colMeans(is.na(df_clean)) < limit_brakow_kolumny]
+
+# 3. Usuwanie KRAJÓW (Wierszy) z dużą liczbą braków
+limit_brakow_wiersza <- 0.3
+df_clean <- df_clean[rowMeans(is.na(df_clean)) < limit_brakow_wiersza, ]
+
+dim(df_clean)
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
 
+library(dplyr)
+
+df_clean <- df_clean %>%
+  mutate(across(where(is.numeric), ~ifelse(is.na(.), median(., na.rm = TRUE), .)))
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
+# Funkcja Współczynnika Zmienności
+cv_calc <- function(x) { sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE) * 100 }
 
+# Liczymy CV dla każdej kolumny numerycznej
+zmiennosc <- df_clean %>%
+  select(where(is.numeric)) %>% # Tylko liczby
+  select(-time) %>%             # Wyrzucamy rok z analizy zmienności
+  summarise(across(everything(), cv_calc)) %>%
+  pivot_longer(everything(), names_to = "Zmienna", values_to = "CV_proc") %>%
+  arrange(CV_proc)
+
+print(zmiennosc)
+
+# Decyzja: Usuń zmienne z CV < 10%
+zmienne_do_usuniecia <- zmiennosc %>% filter(CV_proc < 10) %>% pull(Zmienna)
+df_clean <- df_clean %>% select(-all_of(zmienne_do_usuniecia))
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
 ```
 
