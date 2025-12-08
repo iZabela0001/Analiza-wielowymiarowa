@@ -1,0 +1,531 @@
+---
+title: "Jakość pracy i wykluczenie na europejskich rynkach pracy"
+author: "Izabela Reszka, Piotr Wiśniewski, Klaudia Woźniak"
+date: "2025-11-25"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    number_sections: true
+    theme:
+      version: 4
+      bg: "#ffffff"        # Kolor tła (biały)
+      fg: "#2c3e50"        # Kolor tekstu (ciemny granat)
+      primary: "#e74c3c"   # Kolor główny (np. nagłówków i linków - tu czerwień)
+---
+
+```{css, echo=FALSE}
+/* 1. Ustawienie tła całego ekranu */
+body {
+  background-image: url('tlo.jpeg'); 
+  background-size: cover;
+  background-attachment: fixed;
+  background-position: center;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; /* Czysta czcionka */
+}
+
+.main-container {
+  background-color: rgba(255, 255, 255, 0.94); /* Biały z minimalną przezroczystością */
+  padding: 20px;            /* Marginesy wewnątrz */
+  margin-top: 20px;
+  margin-bottom: 20px;
+  border-radius: 8px;       /* Lekko zaokrąglone rogi */
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2); /* Elegancki cień pod kartką */
+  max-width: 1500px !important; /* Szerszy tekst, bo masz tabele! */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+h1, h2, h3 {
+  color: #2c3e50; /* Ciemny granat - profesjonalny */
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+```
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Cel projektu
+
+Celem projektu jest wielowymiarowa analiza porównawcza kondycji rynków pracy w wybranych gospodarkach świata. Badanie ma na celu skonstruowanie syntetycznego wskaźnika **"Jakości Pracy i Inkluzji Społecznej"**, który pozwoli na stworzenie rankingu krajów pod kątem stabilności zatrudnienia, efektywności wykorzystania kapitału ludzkiego oraz obciążenia pracą.
+
+Dodatkowym celem jest weryfikacja, czy wysoka wydajność gospodarcza (mierzona PKB na pracownika) jest tożsama z wysoką jakością warunków pracy, czy też istnieją modele gospodarcze oparte na wysokiej efektywności, ale niskim bezpieczeństwie socjalnym pracowników. Analiza obejmuje również próby wyodrębnienia (klasteryzacji) grup krajów o podobnych profilach strukturalnych rynku pracy.
+
+## Hipotezy badawcze
+
+W projekcie postawiono następujące hipotezy badawcze:
+
+-   **H1:** Istnieje wyraźna, dodatnia korelacja między wydajnością pracy (Labour Productivity) a syntetyczną jakością zatrudnienia. Kraje o wysokim nasyceniu technologicznym oferują zazwyczaj stabilniejsze i mniej obciążające czasowo warunki pracy.
+-   **H2:** Występuje zjawisko "trade-off" (wymienności) między liczbą przepracowanych godzin a wydajnością. Kraje o najdłuższym tygodniowym czasie pracy charakteryzują się niższą wydajnością jednostkową, co wskazuje na ekstensywny, a nie intensywny model rozwoju.
+-   **H3:** Analiza skupień pozwoli wyodrębnić specyficzny klaster krajów (tzw. "Prekariat Południa/Wschodu"), charakteryzujący się wysokim udziałem młodzieży niepracującej (NEET) oraz wysokim poziomem zatrudnienia wrażliwego, mimo relatywnie przeciętnych wskaźników ogólnego bezrobocia.
+
+## Opis projektu (Metodyka)
+
+Badanie opiera się na metodach Wielowymiarowej Analizy Statystycznej (MSA). Jako źródło danych wykorzystano bazy **Międzynarodowej Organizacji Pracy (ILOSTAT)**.
+
+Proces badawczy obejmuje następujące etapy: 1. **Selekcja zmiennych:** Dobór wskaźników diagnostycznych opisujących negatywne (destymulanty) i pozytywne (stymulanty) aspekty rynku pracy. 2. **Normalizacja danych:** Sprowadzenie zmiennych do porównywalności (unitaryzacja zerowana lub standaryzacja) w celu wyeliminowania wpływu różnych jednostek miary (procenty vs. dolary vs. godziny).
+
+RESZTA UUZPEŁNIONA ZOSTANIE WG WYMAGAŃ DAGNY
+
+## Opis zmiennych diagnostycznych
+
+### 1. Zmienne identyfikacyjne i porządkowe
+
+Te kolumny służą do identyfikacji obiektu badania i nie biorą bezpośredniego udziału w obliczeniach rankingowych, ale są kluczowe dla struktury bazy danych.
+
+-   **`ref_area` (Reference Area)**
+    -   **Opis:** Nazwa kraju (jednostki terytorialnej) objętego badaniem.
+    -   **Zakres:** lista państw i terytoriów zależnych Europy.
+-   **`time`**
+    -   **Opis:** Rok, którego dotyczą obserwacje.
+    -   **Zakres:** Lata 2015--2023 (do analizy przekrojowej zostanie wybrany jeden rok, np. 2022).
+-   **`sex`**
+    -   **Opis:** Płeć, której dotyczą dane statystyczne.
+    -   **Kategorie:** *Female* (Kobiety), *Male* (Mężczyźni), *Total* (Ogółem).
+    -   **Zastosowanie:** Do budowy głównego rankingu wykorzystane zostaną wiersze z kategorii *Total*.
+
+------------------------------------------------------------------------
+
+### 2. Główne zmienne diagnostyczne (Rynek Pracy - ILO)
+
+-   **`obs_value_unempl_rate` (Stopa bezrobocia)**
+    -   **Definicja:** Procentowy udział osób bezrobotnych w ogólnej liczbie ludności aktywnej zawodowo (siły roboczej).
+    -   **Jednostka:** % (Procent).
+    -   **Charakter:** **Destymulanta** (wzrost wartości jest niekorzystny).
+    -   **Interpretacja:** Podstawowa miara braku równowagi na rynku pracy.
+-   **`obs_value_NEET` (Wskaźnik NEET)**
+    -   **Definicja:** Odsetek młodzieży niepracującej, niekształcącej się i nieszkolącej zawodowo (*Share of youth not in employment, education or training*).
+    -   **Jednostka:** % (Procent populacji młodzieżowej).
+    -   **Charakter:** **Destymulanta**.
+    -   **Interpretacja:** Mierzy wykluczenie społeczne i strukturalne niewykorzystanie potencjału młodych kadr.
+-   **`obs_value_PKB` (Wydajność pracy / Labour Productivity)**
+    -   **Definicja:** Wartość PKB przypadająca na jednego pracującego (*Output per worker*), wyrażona w parytecie siły nabywczej.
+    -   **Jednostka:** Dolar międzynarodowy
+    -   **Charakter:** **Stymulanta** (wzrost wartości jest korzystny).
+    -   **Interpretacja:** Określa poziom rozwoju technologicznego i efektywność gospodarczą kraju.
+-   **`obs_value_worked_hours` (Całkowity wolumen godzin pracy)**
+    -   **Definicja:** Łączna liczba godzin przepracowanych w gospodarce przez wszystkich pracujących w ciągu roku/tygodnia.
+    -   **Jednostka:** Tysiące godzin.
+-   **`obs_value_informal` (Zatrudnienie w szarej strefie)**
+    -   **Definicja:** Odsetek pracujących w gospodarce nieformalnej.
+
+    -   
+
+        ## **Jednostka:** % (Procent).
+
+### 3. Zmienne kontekstowe (Wolność Gospodarcza - Heritage Foundation)
+
+Zmienne te pochodzą z *Index of Economic Freedom*. Służą do oceny otoczenia instytucjonalnego. W projekcie pełnią rolę zmiennych objaśniających lub referencyjnych.
+
+-   **`obs_value_economic_freedom_overall`**
+    -   **Opis:** Główny, syntetyczny indeks Wolności Gospodarczej. Agreguje wszystkie poniższe sub-indeksy.
+    -   **Skala:** 0--100 pkt (im więcej, tym większa wolność).
+-   **`Labor Freedom` (Wolność rynku pracy)**
+    -   **Opis:** Mierzy ramy prawne dotyczące płacy minimalnej, łatwości zatrudniania i zwalniania pracowników oraz restrykcyjność godzin pracy.
+    -   **Interpretacja:** Wysoki wynik oznacza bardzo elastyczny rynek (łatwe zwolnienia), niski wynik oznacza rynek mocno regulowany (duża ochrona pracownika).
+-   **Pozostałe sub-indeksy (wymienione w pliku):**
+    -   *Rule of Law:* `Property Rights` (Prawa własności), `Judicial Effectiveness` (Efektywność sądów), `Government Integrity` (Uczciwość rządu).
+    -   *Government Size:* `Tax Burden` (Obciążenia podatkowe), `Government Spending` (Wydatki rządowe), `Fiscal Health` (Zdrowie fiskalne).
+    -   *Regulatory Efficiency:* `Business Freedom` (Swoboda działalności), `Monetary Freedom` (Stabilność pieniądza).
+    -   *Open Markets:* `Trade Freedom` (Handel zagraniczny), `Investment Freedom` (Inwestycje), `Financial Freedom` (Sektor finansowy).
+
+"Zbiór danych charakteryzuje się wysoką kompletnością dla kluczowych zmiennych ILO (Bezrobocie, NEET, Wydajność), co pozwala na rzetelną analizę porównawczą. Zmienne dotyczące wolności gospodarczej posłużą do pogłębionej interpretacji wyników (tzw. profilingu klastrów)." --- ZOBACZYMY CZY TO DAMY
+
+## Opis plików źródłowych (Przed połączeniem)
+
+Dane zostały pobrane z repozytorium ILOSTAT w postaci osobnych plików CSV dla każdego wskaźnika.
+
+1.  **Plik `Unemployment_Rate.csv`**: Zawiera stopę bezrobocia ogółem (Total) dla wybranych krajów.
+2.  **Plik `NEET_Share.csv`**: Zawiera odsetek młodzieży biernej zawodowo i edukacyjnie.
+3.  **Plik `Working_Hours.csv`**: Zawiera średnią liczbę godzin przepracowanych tygodniowo.
+4.  **Plik `Vulnerable_Employment.csv`**: Zawiera odsetek osób w formach zatrudnienia o niskim poziomie zabezpieczenia.
+5.  **Plik `Labour_Productivity_PPP.csv`**: Zawiera wartość PKB przypadającą na jednego pracującego (w dolarach międzynarodowych).
+
+*Proces przygotowania danych (ETL):* Pliki zostały połączone (zmergowane) w jedną bazę danych przy użyciu klucza `Kraj` (Reference Area) + `Rok` (Time), usuwając zbędne kolumny techniczne i ujednolicając nazewnictwo krajów.
+
+```{r BIBLIOTEKI, echo=FALSE, results='asis', include=FALSE, message=FALSE, warning=FALSE}
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+# BIBLIOTEKI
+
+library(tidyverse)
+library(naniar)
+library(skimr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(corrplot)
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+```{r DANE, echo=FALSE, results='asis'}
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+# ŁADOWANIE DANYCH
+df <- read.csv("dane_final.csv")
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+# Wstępna analiza danych
+
+## Struktura danych oraz podstawowe statystyki
+
+```{r,results='asis', echo=FALSE, eval=TRUE}
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+# TYPY DANYCH
+#glimpse(df)
+df$ref_area <- as.factor(df$ref_area)
+df$sex <- as.factor(df$sex)
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+```{r tabelka_typy, results='asis', echo=FALSE, eval=TRUE}
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+# TABELKA ZA ZMIANAMI
+tabela <- data.frame(
+Typ = sapply(df, class)
+)
+knitr::kable(tabela, booktabs = TRUE,  caption = "Struktura danych") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) 
+
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+#### Interpreacja:
+
+W pierwotnym zbiorze danych znajdowało się 21 kolumn zawierających informacje dotyczące państw, lat, płci oraz różnych wskaźników ekonomicznych i społecznych. Funkcja `glimpse(df)` wykazała, że:
+
+-   większość kolumn liczbowych była już poprawnie zapisana w formacie numerycznym (`dbl` -- double precision numeric),
+-   zmienne opisowe, takie jak *ref_area* (państwo) oraz *sex* (płeć), były zapisane jako tekst (`chr`).
+
+Aby przygotować dane do dalszych analiz statystycznych i modelowania, wprowadzono jedynie **minimalne i niezbędne zmiany typów danych**:
+
+1.  **Kolumnę `ref_area` zmieniono z typu `character` na `factor`**, ponieważ reprezentuje ona zmienną kategoryczną (nazwy państw).
+2.  **Kolumnę `sex` zmieniono z typu `character` na `factor`**, ponieważ zmienna ta ma skończony zbiór kategorii (Female, Male, Total).
+
+-   Wszystkie kolumny liczbowo-wskaźnikowe (`obs_value_*`, wskaźniki ekonomiczne) pozostały w typie `dbl`, który jest domyślnym i odpowiednim typem liczbowym w R.
+-   Kolumna `time` pozostała w typie `integer`, który jest również poprawny.
+
+W zbiorze **nie było konieczności** konwertowania kolumn `dbl` na `numeric`, ponieważ są one traktowane tak samo przez R.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+# PODSTAWOWE STATYSTYKI
+#summary(df)
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+```{r, results='asis', echo=FALSE, eval=TRUE}
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+# tabelka z wynikami
+statystyki_numeryczne <- skim(df) %>%
+  yank("numeric") %>%  # Wyciąga tylko zmienne liczbowe (to kluczowa funkcja!)
+  select(
+    Zmienna = skim_variable,
+    Braki = n_missing,
+    "Średnia" = mean,
+    Odchylenie = sd,
+    Min = p0,
+    Mediana = p50,
+    Max = p100
+  ) 
+  # Uwaga: Celowo pomijamy kolumnę 'hist', bo psuje PDF-y w LaTeXu
+knitr::kable(statystyki_numeryczne, booktabs = TRUE,  caption = "Struktura danych") %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+## Identyfikacja braków w danych
+
+### Wszystkie zmienne
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+# WYKRESY BRAKÓW DANYCH
+vis_miss(df) +
+  labs(title = "Mapa braków danych w całym zbiorze (2015-2023)") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+gg_miss_var(df, show_pct = TRUE) +
+  labs(
+    title = "Procent braków danych wg zmiennych",
+    y = "Procent brakujących obserwacji (%)"
+  ) +
+  theme_minimal() 
+
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+#### Interpretacja analizy braków danych
+
+Przeprowadzona analiza kompletności zbioru danych (z wykorzystaniem funkcji `gg_miss_var`) wykazała istotne zróżnicowanie w dostępności poszczególnych zmiennych. Na podstawie wygenerowanego wykresu można sformułować następujące wnioski:
+
+-   **Zmienne o krytycznym poziomie braków (\>30%)** Zmienne `Fiscal.Health` oraz `Judicial.Effectiveness` charakteryzują się najwyższym odsetkiem brakujących obserwacji (przekraczającym 30%). Tak wysoki poziom niekompletności dyskwalifikuje je jako główne zmienne diagnostyczne w modelu, ponieważ ich uwzględnienie wymagałoby drastycznego ograniczenia liczby badanych krajów lub zastosowania zaawansowanych metod imputacji, co mogłoby zniekształcić wyniki rankingu.
+
+-   **Problematyczna zmienna "Szara strefa" (`obs_value_informal`)** Zmienna dotycząca zatrudnienia w gospodarce nieformalnej wykazuje braki na poziomie ponad 20%. Jest to sygnał, że dane te mogą nie być raportowane systematycznie przez wszystkie kraje.
+
+-   **Zmienne kontekstowe (Wolność gospodarcza)** Grupa wskaźników pochodzących z *Heritage Foundation* (m.in. `Government.Spending`, `Tax.Burden`, `Property.Rights`) wykazuje umiarkowany poziom braków (ok. 10-15%). Sugeruje to, że dla części krajów lub lat w badanym okresie (2015-2023) indeks ten nie został obliczony.
+
+**Wysoka jakość kluczowych zmiennych diagnostycznych** Najważniejszym wnioskiem z analizy jest **bardzo wysoka kompletność zmiennych rynku pracy**, które zostały wytypowane do budowy głównego wskaźnika syntetycznego: \* `obs_value_unempl_rate` (Stopa bezrobocia) -- braki bliskie 0%. \* `obs_value_PKB` (Wydajność/PKB) -- braki poniżej 5%. \* `obs_value_NEET` -- braki poniżej 10%.
+
+### W zależności od kraju
+
+```{r echo=FALSE, eval=TRUE, results='asis', fig.height=6, fig.width=7}
+library(dplyr)
+library(ggplot2)
+
+df_missing_kraje <- df %>%
+  group_by(ref_area) %>%
+  summarise(
+    missing_count = sum(is.na(across(everything()))),
+    # Używamy c_across wewnątrz rowwise lub po prostu standardowej logiki dla całej ramki
+    # Poniższa logika zakłada, że 'across' zadziała poprawnie w Twojej wersji dplyr
+    missing_percent = round(mean(is.na(across(everything()))) * 100, 2)
+  ) %>%
+  arrange(desc(missing_percent))
+
+ggplot(df_missing_kraje, aes(x = reorder(ref_area, missing_percent), y = missing_percent)) +
+  # Tworzenie słupków
+  geom_col(fill = "steelblue", alpha = 0.8) +
+  
+  # Dodanie etykiet z wartościami na końcach słupków (opcjonalne, ale pomocne)
+  geom_text(aes(label = paste0(missing_percent, "%")), 
+            hjust = -0.2, size = 3.5, color = "black") +
+  
+  # Obrócenie wykresu poziomo (lepiej widać nazwy krajów/obszarów)
+  coord_flip() +
+  
+  # Opisy osi i tytuł
+  labs(
+    title = "Procent braków danych wg obszaru",
+    x = "Obszar (ref_area)",
+    y = "Procent brakujących danych (%)"
+  ) +
+
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold")) +
+  expand_limits(y = max(df_missing_kraje$missing_percent) * 1.1)
+
+```
+
+Zbiór danych jest wyraźnie podzielony na dwie grupy: kraje z krytycznymi brakami danych oraz kraje z wysoką kompletnością informacji.
+
+1.  **Grupa z krytycznymi brakami (>60%):**
+    Na szczycie znajdują się mikropaństwa (**San Marino, Monako** – ponad 80% braków), co jest typowe w statystyce międzynarodowej. Jednak niepokojąca jest obecność dużych gospodarek w tej grupie: **Wielkiej Brytanii, Rosji czy Czech** (60-65% braków). Tak wysoki odsetek pustych wartości prawdopodobnie wyklucza te kraje z wiarygodnej analizy porównawczej.
+
+2.  **Grupa "stabilna" (<7%):**
+    Zdecydowana większość analizowanych krajów (od Czarnogóry w dół) posiada kompletność danych na poziomie powyżej 93%.
+
+3.  **Systematyczny błąd (Wartość 2.12%):**
+    Zwraca uwagę fakt, że ogromna liczba państw (od Turcji aż do Austrii) ma identyczny wynik braków: **2.12%**. To nie jest przypadek.
+    * **Interpretacja:** Sugeruje to **systematyczny brak danych**, np. jedna konkretna zmienna nie jest raportowana dla całej tej grupy krajów lub brakuje danych za jeden konkretny rok w szeregu czasowym.
+
+
+## Wartości odstające oraz rozkład danych
+
+### Wykresy skrzypcowe
+
+```{r echo=FALSE, fig.height=4, fig.width=6, message=FALSE, warning=FALSE}
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+#   skrzypcowe TYLKO DLA ZMIENNYCH KLUCZOWYCH
+df_hist <- df %>%
+  filter(sex == "Total") %>%
+  select(Bezrobocie = obs_value_unempl_rate, 
+         NEET = obs_value_NEET, 
+         PKB = obs_value_PKB) %>%
+  pivot_longer(cols = everything(), names_to = "Zmienna", values_to = "Wartosc")
+ggplot(df_hist, aes(x = Zmienna, y = Wartosc, fill = Zmienna)) +
+  # 1. Skrzypce (pokazują gęstość/rozkład)
+  geom_violin(alpha = 0.5, trim = FALSE) +
+  
+  # 2. Boxplot w środku (wąski)
+  geom_boxplot(width = 0.1, fill = "white", outlier.shape = NA) +
+  
+  facet_wrap(~Zmienna, scales = "free") +
+  labs(
+    title = "Analiza rozkładu: Wykresy skrzypcowe (Violin Plots)",
+    subtitle = "Połączenie gęstości (kształt) i boxplotu (statystyki)",
+    x = "", y = "Wartość"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+*Interpreacja*:
+
+-   **Stopa bezrobocia (`Bezrobocie`)**:
+
+    -   **Charakter rozkładu:** Wyraźnie **prawostronnie skośny** (asymetryczny dodatnio).
+
+    -   **Koncentracja:** "Brzusiec" skrzypiec znajduje się nisko, co oznacza, że zdecydowana większość badanych krajów charakteryzuje się niską stopą bezrobocia (mediana oscyluje w granicach 5-7%).
+
+    -   **Wartości odstające:** Długa, cienka "szyjka" wykresu ciągnąca się w górę wskazuje na występowanie grupy państw o bardzo wysokim bezrobociu (sięgającym 15-30%). Są to klasyczne wartości odstające (outliery), które będą wymagały standaryzacji, aby nie zdominowały rankingu.
+
+-   **Wskaźnik NEET (`NEET`)**:
+
+    -   **Charakter rozkładu:** Podobnie jak w przypadku bezrobocia, rozkład jest asymetryczny prawostronnie, jednak jest on bardziej "spłaszczony" (bardziej równomierny) niż w przypadku bezrobocia.
+
+    -   **Koncentracja:** Mediana przyjmuje wyższe wartości (ok. 10-12%). Rozrzut danych jest znaczny (od ok. 3% do 30%), co sugeruje duże zróżnicowanie w Europie pod względem aktywizacji młodzieży.
+
+-   **Wydajność pracy / PKB (`PKB`)**:
+
+    -   **Charakter rozkładu:** **Silna asymetria prawostronna**. Jest to najbardziej nierównomierny rozkład ze wszystkich badanych zmiennych.
+
+    -   **Koncentracja:** Zdecydowana większość państw skupiona jest w dolnej części wykresu (PKB \< 100 tys.).
+
+    -   **Wartości ekstremalne:** Bardzo długa "szyjka" wskazuje na obecność "liderów wydajności" których wyniki drastycznie odbiegają od średniej europejskiej.
+
+**Wnioski metodyczne dla budowy rankingu:** Wszystkie trzy zmienne diagnostyczne charakteryzują się brakiem rozkładu normalnego i występowaniem silnej asymetrii prawostronnej. Oznacza to, że: konieczna jest normalizacja zmiennych aby sprowadzić je do porównywalnej skali i zniwelować wpływ wartości odstających (szczególnie w przypadku PKB) na finalny wynik.
+
+## Korelacja zmiennych kluczowych
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=5, fig.width=5}
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+# Macierz korelacji zmiennych kluczowych
+dane_kor <- df %>%
+  filter(sex == "Total") %>%
+  select(
+    Bezrobocie = obs_value_unempl_rate,
+    NEET = obs_value_NEET,
+    PKB = obs_value_PKB,
+    Wolnosc_Gosp = obs_value_economic_freedom_overall
+  ) %>%
+  drop_na() 
+M <- cor(dane_kor)
+
+# 3. Rysujemy wykres
+corrplot(M, method = "color", type = "upper", 
+         addCoef.col = "black", 
+         tl.col = "black",     
+         tl.srt = 45,           
+         diag = FALSE,          
+         title = "Macierz korelacji zmiennych kluczowych",
+         mar = c(0,0,2,0))   
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+*Interpreacja*:
+
+W celu zbadania siły i kierunku współzależności między potencjalnymi zmiennymi diagnostycznymi (Bezrobocie, NEET, PKB) oraz zmienną kontekstową (Wolność Gospodarcza), wyznaczono macierz korelacji liniowej Pearsona. Analiza wykresu (mapy ciepła) pozwala na sformułowanie następujących wniosków:
+
+**1. Silna synergia zmiennych negatywnych (Bezrobocie i NEET)**
+
+-   Obserwuje się **silną dodatnią korelację** (ciemnoniebieskie pole) między stopą bezrobocia a wskaźnikiem NEET. Jest to zależność oczekiwana i logiczna -- wzrost bezrobocia w populacji ogólnej zazwyczaj pociąga za sobą wzrost wykluczenia wśród młodzieży. Mimo silnego powiązania, współczynnik korelacji nie osiąga poziomu krytycznego (powyżej 0,9), co oznacza, że zmienne te nie duplikują w pełni niesionej informacji.
+
+**2. Odwrotna relacja między wydajnością (PKB) a problemami społecznymi**
+
+-   Zmienna `PKB` (stymulanta) wykazuje **wyraźną ujemną korelację** (czerwone pola) ze zmiennymi `Bezrobocie` oraz `NEET` (destymulanty). Potwierdza to fundamentalną teorię ekonomiczną (Prawo Okuna) -- kraje o wyższym poziomie rozwoju gospodarczego i wydajności pracy charakteryzują się niższym poziomem bezrobocia oraz mniejszym wykluczeniem młodzieży. Silny czerwony kolor potwierdza, że zmienne te dobrze różnicują badane kraje na "bogate i aktywne" oraz "biedniejsze i pasywne".
+
+**3. Rola Wolności Gospodarczej (`Wolnosc_Gosp`)**
+
+-   Wskaźnik ten jest **dodatnio skorelowany z PKB** (niebieskie pole) i ujemnie z bezrobociem (czerwone pole). Potwierdza to hipotezę, że kraje o wyższym poziomie wolności gospodarczej (lepsze instytucje, ochrona własności) osiągają zazwyczaj wyższą wydajność pracy i lepszą sytuację na rynku pracy.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+library(GGally)
+
+df_diag <- df %>%
+  select(
+    obs_value_unempl_rate,
+    obs_value_NEET,
+    obs_value_PKB
+  )
+
+GGally::ggpairs(
+  df_diag,
+  title = "Analiza nieliniowych współzależności"
+)
+
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+
+
+#### 1. Wykres braków danych (Bar Plot)
+Ten wykres ujawnia **krytyczny podział jakości danych** w Twoim zbiorze:
+
+* **Grupa do odrzucenia (>60% braków):** Kraje takie jak **San Marino, Monako, UK, Rosja, Mołdawia i Czechy** mają drastycznie wysoki odsetek braków danych (od 62% do 81%). Wnioskowanie statystyczne na ich podstawie będzie obarczone ogromnym błędem. Zaleca się usunięcie tych obserwacji ze zbioru.
+* **Systematyczny brak (2.12%):** Ogromna grupa państw (od Turcji do Austrii) posiada identyczny odsetek braków wynoszący **2.12%**. Sugeruje to **błąd strukturalny** – prawdopodobnie dla wszystkich tych krajów brakuje danych z jednego konkretnego roku lub jednej specyficznej zmiennej (kolumny).
+* **Wniosek:** Zbiór jest niejednorodny. Należy usunąć kraje z góry wykresu i sprawdzić, która zmienna generuje stały błąd 2.12% dla reszty.
+
+---
+
+#### 2. Analiza współzależności (Macierz korelacji / Scatterplots)
+Wykres przedstawia relacje między stopą bezrobocia (`unempl_rate`), wskaźnikiem NEET i PKB (`PKB`).
+
+* **Silna dodatnia korelacja (0.650\*\*\*) między Bezrobociem a NEET:**
+    Jest to zależność oczekiwana i liniowa. Wzrost stopy bezrobocia pociąga za sobą wyraźny wzrost odsetka młodzieży nieuczącej się i niepracującej. Wykres punktowy (lewy środkowy panel) pokazuje jednak dużą wariancję – przy tym samym bezrobociu wskaźnik NEET może być różny, co zależy od polityki socjalnej danego kraju.
+* **Ujemny wpływ PKB na problemy społeczne:**
+    Zamożność kraju (PKB) koreluje ujemnie z problemami rynku pracy.
+    * Silniejszy związek widać przy **NEET (-0.478\*\*\*)**: Wyższe PKB skuteczniej "chroni" przed zjawiskiem NEET niż przed samym bezrobociem.
+    * Słabszy związek przy **Bezrobociu (-0.246\*\*\*)**: Samo wysokie PKB nie gwarantuje niskiego bezrobocia (zależność jest słaba).
+* **Nieliniowość i rozkłady (Przekątna i doły):**
+    * **Rozkład PKB (prawy dolny róg)** jest **bimodalny** (ma dwa "garby"). Wskazuje to na istnienie dwóch klastrów krajów w zbiorze: grupy państw "biedniejszych" i grupy "bogatszych".
+    * Wykresy punktowe z PKB (dolny rząd) mają kształt litery "L" (hiperboliczny). Oznacza to, że po przekroczeniu pewnego progu zamożności, wskaźniki NEET i bezrobocia stabilizują się na niskim poziomie, ale w krajach biedniejszych ich rozrzut jest ogromny.
+
+
+
+
+## Czyszczenie braków danych (Cleaning) oraz uzupełnianie
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+df_clean <- df %>% filter(sex == "Total")
+
+# 2. Usuwanie KOLUMN z dużą liczbą braków (np. > 30% w całym zbiorze)
+
+limit_brakow_kolumny <- 0.3
+df_clean <- df_clean[, colMeans(is.na(df_clean)) < limit_brakow_kolumny]
+
+# 3. Usuwanie KRAJÓW (Wierszy) z dużą liczbą braków
+limit_brakow_wiersza <- 0.3
+df_clean <- df_clean[rowMeans(is.na(df_clean)) < limit_brakow_wiersza, ]
+
+dim(df_clean)
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+library(dplyr)
+
+df_clean <- df_clean %>%
+  mutate(across(where(is.numeric), ~ifelse(is.na(.), median(., na.rm = TRUE), .)))
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+# Funkcja Współczynnika Zmienności
+cv_calc <- function(x) { sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE) * 100 }
+
+# Liczymy CV dla każdej kolumny numerycznej
+zmiennosc <- df_clean %>%
+  select(where(is.numeric)) %>% # Tylko liczby
+  select(-time) %>%             # Wyrzucamy rok z analizy zmienności
+  summarise(across(everything(), cv_calc)) %>%
+  pivot_longer(everything(), names_to = "Zmienna", values_to = "CV_proc") %>%
+  arrange(CV_proc)
+
+print(zmiennosc)
+
+# Decyzja: Usuń zmienne z CV < 10%
+zmienne_do_usuniecia <- zmiennosc %>% filter(CV_proc < 10) %>% pull(Zmienna)
+df_clean <- df_clean %>% select(-all_of(zmienne_do_usuniecia))
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+```
