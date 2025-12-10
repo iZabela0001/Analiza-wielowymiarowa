@@ -518,14 +518,137 @@ df_clean <- df_clean %>% select(-all_of(zmienne_do_usuniecia))
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
 ```
 
+
+
+# Metoda Hellwiga
+
+
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
 
+# 1. Przekształcenie destymulant w stymulanty (zgodnie z kodem źródłowym)
+# W Twoim przypadku destymulanty to: bezrobocie, NEET, szara strefa.
+# PKB jest stymulantą - zostawiamy bez zmian.
+
+df_clean$unempl_s <- max(df_clean$obs_value_unempl_rate, na.rm=TRUE) - df_clean$obs_value_unempl_rate
+df_clean$neet_s <- max(df_clean$obs_value_NEET, na.rm=TRUE) - df_clean$obs_value_NEET
+df_clean$informal_s <- max(df_clean$obs_value_informal, na.rm=TRUE) - df_clean$obs_value_informal
+
+# 2. Tworzenie macierzy X tylko ze stymulantami (zmiennymi o jednolitym kierunku)
+X <- data.frame(
+  unempl = df_clean$unempl_s,
+  neet = df_clean$neet_s,
+  informal = df_clean$informal_s,
+  pkb = df_clean$obs_value_PKB
+)
+
+data_norm_z <- as.data.frame(scale(X))
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
 ```
+
+
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
+# 4. Wyznaczenie wzorca (dla zmiennych nieważonych)
+pattern <- apply(data_norm_z, 2, max)
 
+# 5. Obliczenie odległości euklidesowej (bez wag)
+dist_euclid <- sqrt(rowSums((data_norm_z - matrix(pattern, nrow = nrow(data_norm_z), ncol = ncol(data_norm_z), byrow = TRUE))^2))
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
 ```
+
+
+
+```{r}
+# 6. Budowa taksonomicznego miernika rozwoju (TMR)
+# Źródło: [cite: 875-879]
+d_mean <- mean(dist_euclid)
+d_sd <- sd(dist_euclid)
+d0 <- d_mean + 2 * d_sd
+
+Hellwig_index <- 1 - (dist_euclid / d0)
+Hellwig_index[Hellwig_index < 0] <- 0  # wartości ujemne zastępujemy 0
+
+# 7. Tworzenie rankingu
+ranking <- data.frame(
+  voivodship = df_clean$ref_area, 
+  H = Hellwig_index
+)
+
+ranking <- ranking[order(-ranking$H), ]
+
+print(head(ranking))
+```
+
+
+```{r}
+# 8. Wyznaczenie klas rozwoju
+H_mean <- mean(ranking$H)
+H_sd   <- sd(ranking$H)
+
+ranking$category <- cut(
+  ranking$H,
+  breaks = c(-Inf, H_mean - H_sd, H_mean, H_mean + H_sd, Inf),
+  labels = c("niski", "średni", "wysoki", "bardzo wysoki"),
+  right = TRUE
+)
+
+print(ranking)
+```
+
+```{r}
+# Wczytanie bibliotek do mapowania (zgodnie z [cite: 513-515] + rnaturalearth jako źródło mapy)
+library(sf)
+library(ggplot2)
+library(dplyr)
+library(stringi)
+library(rnaturalearth) # Zamiast wczytywać plik .shp z dysku 
+
+# 1. Pobranie mapy Europy (zamiast st_read("voivodeships.shp"))
+# To jest odpowiednik wczytania pliku kształtów [cite: 517-518]
+europe_map <- ne_countries(scale = "medium", returnclass = "sf", continent = "Europe")
+
+# 2. Czyszczenie nazw krajów (zgodnie z [cite: 524-525])
+# Używamy stringi, aby ujednolicić nazwy (małe litery, brak znaków specjalnych)
+europe_map$name_clean <- tolower(stri_trans_general(europe_map$name, "Latin-ASCII"))
+ranking$kraj_clean <- tolower(stri_trans_general(ranking$voivodship, "Latin-ASCII")) # voivodship to u nas nazwa kraju
+
+# Uwaga: Nazwy krajów w mapie mogą być po angielsku (np. "germany"), a w Twoich danych inaczej.
+# W analizie "na sztywno" często trzeba ręcznie poprawić różnice, ale tu stosujemy ogólną metodę.
+
+# 3. Połączenie danych (zgodnie z [cite: 527-528])
+map_data <- europe_map %>%
+  left_join(ranking, by = c("name_clean" = "kraj_clean"))
+
+# 4. Wizualizacja mapy (zgodnie z [cite: 530-550])
+ggplot(map_data) +
+  geom_sf(aes(fill = category), color = "grey30", size = 0.3) + # [cite: 531]
+  scale_fill_manual(
+    values = c(
+      "bardzo wysoki" = "#00441b",
+      "wysoki"        = "#238b45",
+      "średni"        = "#66c2a4",
+      "niski"         = "#ccece6"
+    ),
+    name = "Poziom rozwoju",
+    na.value = "grey90" # Kolor dla krajów bez danych (np. spoza analizy)
+  ) + # [cite: 532-540]
+  labs(
+    title = "Klasy jakości rynku pracy w Europie (Metoda Hellwiga)",
+    subtitle = "Podział: bardzo wysoki – wysoki – średni – niski",
+    caption = "Źródło: opracowanie własne na podstawie danych ILO"
+  ) + # [cite: 541-545]
+  theme_minimal() + # [cite: 546]
+  theme(
+    plot.title    = element_text(face = "bold", size = 14),
+    legend.position = "bottom"
+  ) + # [cite: 547-549]
+  coord_sf(xlim = c(-25, 45), ylim = c(34, 72)) # Ograniczenie widoku do Europy
+```
+
+
+
+
+
