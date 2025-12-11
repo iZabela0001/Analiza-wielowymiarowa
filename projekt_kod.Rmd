@@ -649,6 +649,237 @@ ggplot(map_data) +
 ```
 
 
+## Metoda CRITIC
+
+```{r}
+# --- ETAP: WAGI CRITIC ---
+
+# 1. Odchylenia standardowe i macierz korelacji [cite: 68, 70]
+sigma <- apply(data_norm_z, 2, sd, na.rm = TRUE)
+R <- cor(data_norm_z, use = "complete.obs")
+
+# 2. Wskaźnik kontrastu i wagi [cite: 74-76]
+C <- sigma * apply(1 - R, 1, sum)
+weights_critic <- C / sum(C)
+
+print("Wagi CRITIC:")
+print(weights_critic)
+
+# 3. Ważenie danych [cite: 77]
+df_weighted_critic <- sweep(data_norm_z, 2, weights_critic, `*`)
+
+# 4. Hellwig dla danych ważonych (CRITIC) [cite: 452, 458]
+pattern_c <- apply(df_weighted_critic, 2, max)
+dist_critic <- sqrt(rowSums((df_weighted_critic - matrix(pattern_c, nrow = nrow(df_weighted_critic), ncol = ncol(df_weighted_critic), byrow = TRUE))^2))
+
+d0_c <- mean(dist_critic) + 2 * sd(dist_critic)
+TMR_critic <- 1 - (dist_critic / d0_c)
+TMR_critic[TMR_critic < 0] <- 0
+
+ranking_critic <- data.frame(
+  Kraj = df_clean$ref_area,  # <-- TU JEST ZMIANA: bierzemy nazwy bezpośrednio z danych
+  H_CRITIC = TMR_critic
+) %>%
+  arrange(desc(H_CRITIC))
+
+print(head(ranking_critic))
+
+```
+
+## Metoda Entropii
+
+```{r}
+# --- ETAP: WAGI ENTROPII ---
+
+# 1. Przesunięcie do wartości dodatnich [cite: 93]
+data_pos <- data_norm_z - apply(data_norm_z, 2, min) + 1e-6
+
+# 2. Udziały (p_ij) [cite: 95]
+p <- sweep(data_pos, 2, colSums(data_pos), FUN = "/")
+p[p <= 0] <- 1e-12 # Zabezpieczenie przed log(0)
+
+# 3. Entropia (E) [cite: 102, 105]
+n <- nrow(data_pos)
+k_const <- 1 / log(n)
+E <- -k_const * colSums(p * log(p))
+
+# 4. Dywersyfikacja i wagi [cite: 107, 109]
+d_div <- 1 - E
+weights_entropy <- d_div / sum(d_div)
+
+print("Wagi Entropii:")
+print(weights_entropy)
+
+# 5. Ważenie danych i Hellwig (Entropia) [cite: 110]
+df_weighted_entropy <- sweep(data_norm_z, 2, weights_entropy, `*`)
+
+pattern_e <- apply(df_weighted_entropy, 2, max)
+dist_entropy <- sqrt(rowSums((df_weighted_entropy - matrix(pattern_e, nrow = nrow(df_weighted_entropy), ncol = ncol(df_weighted_entropy), byrow = TRUE))^2))
+
+d0_e <- mean(dist_entropy) + 2 * sd(dist_entropy)
+TMR_entropy <- 1 - (dist_entropy / d0_e)
+TMR_entropy[TMR_entropy < 0] <- 0
+
+
+ranking_entropy <- data.frame(
+  Kraj = df_clean$ref_area,
+  H_ENTROPIA = TMR_entropy
+) %>%
+  arrange(desc(H_ENTROPIA))
+
+print(head(ranking_entropy))
+```
+
+
+
+
+
+```{r}
+# --- FUNKCJA POMOCNICZA: Obliczanie TMR Hellwiga ---
+# Przyjmuje: macierz danych (już zważoną!)
+calc_hellwig_tmr <- function(data_matrix) {
+  # 1. Wzorzec (zawsze MAX, bo mamy same stymulanty)
+  # [cite: 254-255] (źródło 2)
+  pattern <- apply(data_matrix, 2, max)
+  
+  # 2. Odległość od wzorca (Euklidesowa)
+  # [cite: 261] (źródło 2)
+  dists <- apply(data_matrix, 1, function(x) sqrt(sum((x - pattern)^2)))
+  
+  # 3. Normalizacja miary
+  # [cite: 267] (źródło 2)
+  d0 <- mean(dists) + 2 * sd(dists)
+  tmr <- 1 - (dists / d0)
+  tmr[tmr < 0] <- 0 # Korekta ujemnych [cite: 275] (źródło 2)
+  
+  return(tmr)
+}
+
+# =========================================================
+# SCENARIUSZ 1: WAGI RÓWNE (Equal Weights)
+# =========================================================
+# Metoda najczęściej stosowana, neutralna [cite: 44-48] (źródło 1)
+m <- ncol(data_norm_z)
+w_equal <- rep(1/m, m) 
+
+# Ważenie danych
+df_eq_weighted <- sweep(data_norm_z, 2, w_equal, `*`) # [cite: 50] (źródło 1)
+
+# Obliczenie TMR
+tmr_eq <- calc_hellwig_tmr(df_eq_weighted)
+
+# =========================================================
+# SCENARIUSZ 2: METODA CRITIC (Correlation & Variation)
+# =========================================================
+# Metoda uwzględniająca zmienność i korelację [cite: 65] (źródło 1)
+
+# 1. Odchylenia standardowe
+sigma <- apply(data_norm_z, 2, sd, na.rm = TRUE) # [cite: 68] (źródło 1)
+
+# 2. Macierz korelacji
+R <- cor(data_norm_z, use = "complete.obs") # [cite: 70] (źródło 1)
+
+# 3. Wskaźnik kontrastu i wagi
+C <- sigma * apply(1 - R, 1, sum) # [cite: 72] (źródło 1)
+w_critic <- C / sum(C) # [cite: 76] (źródło 1)
+
+print("Wagi CRITIC:")
+print(w_critic)
+
+# Ważenie danych
+df_critic_weighted <- sweep(data_norm_z, 2, w_critic, `*`) # [cite: 77] (źródło 1)
+
+# Obliczenie TMR
+tmr_critic <- calc_hellwig_tmr(df_critic_weighted)
+
+# =========================================================
+# SCENARIUSZ 3: METODA ENTROPII (Shannon Entropy)
+# =========================================================
+# Metoda premiująca zmienne o dużym zróżnicowaniu [cite: 86] (źródło 1)
+
+# 1. Przesunięcie do wartości dodatnich (wymagane do logarytmu)
+data_pos <- data_norm_z - apply(data_norm_z, 2, min) + 1e-6 # [cite: 93] (źródło 1)
+
+# 2. Normalizacja udziałów
+p <- sweep(data_pos, 2, colSums(data_pos), FUN = "/") # [cite: 95] (źródło 1)
+p[p <= 0] <- 1e-12 # Zabezpieczenie przed log(0) [cite: 104] (źródło 1)
+
+# 3. Entropia i dywersyfikacja
+k_const <- 1 / log(nrow(data_pos)) # [cite: 98] (źródło 1)
+E <- -k_const * colSums(p * log(p)) # [cite: 105] (źródło 1)
+d_div <- 1 - E # [cite: 107] (źródło 1)
+
+# 4. Wagi
+w_entropy <- d_div / sum(d_div) # [cite: 109] (źródło 1)
+
+print("Wagi Entropii:")
+print(w_entropy)
+
+# Ważenie danych
+df_entropy_weighted <- sweep(data_norm_z, 2, w_entropy, `*`) # [cite: 110] (źródło 1)
+
+# Obliczenie TMR
+tmr_entropy <- calc_hellwig_tmr(df_entropy_weighted)
+
+# =========================================================
+# ZESTAWIENIE WYNIKÓW (TABELA PORÓWNAWCZA)
+# =========================================================
+
+# Tworzymy główną tabelę wyników
+# TUTAJ ZMIANA: Używamy df_clean$ref_area zamiast rownames, aby mieć nazwy krajów
+comparison_table <- data.frame(
+  Kraj = df_clean$ref_area,       
+  TMR_Rowne = round(tmr_eq, 4),
+  Rank_Rowne = rank(-tmr_eq),     # Ranking (1 = najlepszy)
+  TMR_Critic = round(tmr_critic, 4),
+  Rank_Critic = rank(-tmr_critic),
+  TMR_Entropia = round(tmr_entropy, 4),
+  Rank_Entropia = rank(-tmr_entropy)
+) %>%
+  arrange(Rank_Rowne) # Sortujemy wg standardowego Hellwiga
+
+# Wyświetlenie tabeli
+print(head(comparison_table, 10))
+
+# =========================================================
+# MIARY PODOBIEŃSTWA RANKINGÓW
+# =========================================================
+# Analiza wrażliwości - porównanie rankingów dla różnych zestawów wag [cite: 126] (źródło 1)
+# Obliczamy współczynnik korelacji rangowej Spearmana  (źródło 1)
+
+cor_matrix <- cor(comparison_table[, c("TMR_Rowne", "TMR_Critic", "TMR_Entropia")], 
+                  method = "spearman")
+
+print("Korelacja rangowa (Spearman) między metodami:")
+print(cor_matrix)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
