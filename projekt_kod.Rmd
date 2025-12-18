@@ -472,7 +472,17 @@ Wykres przedstawia relacje między stopą bezrobocia (`unempl_rate`), wskaźniki
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------
-df_clean <- df %>% filter(sex == "Total")
+df_clean <- df %>%
+  filter(sex == "Total") %>%
+  group_by(ref_area) %>%
+  summarise(
+    across(
+      where(is.numeric) & !matches("^time$"),
+      ~ median(., na.rm = TRUE)
+    ),
+    .groups = "drop"
+  )
+
 
 # 2. Usuwanie KOLUMN z dużą liczbą braków (np. > 30% w całym zbiorze)
 
@@ -505,7 +515,7 @@ cv_calc <- function(x) { sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE) * 100 }
 # Liczymy CV dla każdej kolumny numerycznej
 zmiennosc <- df_clean %>%
   select(where(is.numeric)) %>% # Tylko liczby
-  select(-time) %>%             # Wyrzucamy rok z analizy zmienności
+             # Wyrzucamy rok z analizy zmienności
   summarise(across(everything(), cv_calc)) %>%
   pivot_longer(everything(), names_to = "Zmienna", values_to = "CV_proc") %>%
   arrange(CV_proc)
@@ -855,17 +865,128 @@ print(cor_matrix)
 ```
 
 
+# Analiza skupień
+
+```{r}
+# --- ANALIZA SKUPIEŃ: METODY HIERARCHICZNE ---
+
+# 1. Macierz odległości Euklidesowej
+# Korzystamy z data_norm_z, którą stworzyłeś przy Hellwigu
+# Źródło: Lab 7 [cite: 796]
+dist_euclid <- dist(data_norm_z, method = "euclidean")
+
+# 2. Grupowanie metodą Warda
+# Źródło: Lab 7 [cite: 802]
+hc_ward <- hclust(dist_euclid, method = "ward.D2")
+
+# 3. Wykres Dendrogramu
+# Używamy df_clean$ref_area do etykiet, żeby mieć pewność, że są nazwy krajów
+# Źródło: Lab 7 [cite: 804-806]
+plot(hc_ward, 
+     labels = df_clean$ref_area, 
+     main = "Dendrogram Rynków Pracy (Metoda Warda)",
+     xlab = "Kraje", 
+     sub = "",
+     cex = 0.6) # Mniejsza czcionka dla czytelności
+
+# Rysujemy prostokąty dla sugerowanej liczby klastrów (np. k=4)
+# Źródło: Lab 7 [cite: 814]
+rect.hclust(hc_ward, k = 4, border = "red")
+```
+
+
+## Metoda łokcia
+
+
+```{r}
+# --- METODA ŁOKCIA (ELBOW METHOD) ---
+# Źródło: Lab 8 [cite: 179-183]
+
+wss <- numeric(10) 
+for (k in 1:10) {
+  set.seed(123)
+  # Używamy data_norm_z
+  km <- kmeans(data_norm_z, centers = k, nstart = 25)
+  wss[k] <- km$tot.withinss
+}
+
+# Wykres osypiska
+# Źródło: Lab 8 [cite: 185-188]
+plot(1:10, wss, type = "b", 
+     xlab = "Liczba klastrów (k)", 
+     ylab = "WSS (Suma kwadratów wewnątrz klastra)",
+     main = "Metoda Łokcia - Wybór liczby grup")
+```
+
+## Metoda k-średnich
+
+```{r}
+# --- METODA K-ŚREDNICH (K-MEANS) ---
+
+# 1. Uruchomienie algorytmu 
+# Przyjmujemy k=4 (możesz zmienić tę wartość po obejrzeniu wykresu łokcia)
+# Źródło: Lab 8 [cite: 26]
+set.seed(123)
+k_final <- 4
+km_res <- kmeans(data_norm_z, centers = k_final, nstart = 25)
+
+# 2. Przypisanie grup do danych oryginalnych
+# Źródło: Lab 8 [cite: 75]
+df_clean$Cluster <- factor(km_res$cluster)
+
+# 3. Profilowanie klastrów (średnie wartości zmiennych w grupach)
+# UWAGA: Tutaj używamy df_clean i oryginalnych nazw kolumn (nie _s), 
+# żeby widzieć prawdziwe wartości (np. % bezrobocia), a nie Z-score.
+# Źródło: Lab 8 [cite: 155]
+profiles <- aggregate(cbind(obs_value_unempl_rate, obs_value_NEET, 
+                            obs_value_informal, obs_value_PKB) ~ Cluster, 
+                      data = df_clean, 
+                      FUN = mean)
+
+print("Profile klastrów (średnie wartości):")
+print(profiles)
+```
 
 
 
 
+## Wizaulizacja
 
+```{r}
+# --- WIZUALIZACJA PRZESTRZENNA KLASTRÓW ---
 
+# 1. Przygotowanie danych do mapy
+library(rnaturalearth)
+library(stringi)
+library(dplyr)
+library(ggplot2)
 
+ranking_clusters <- data.frame(
+  kraj_clean = tolower(stri_trans_general(df_clean$ref_area, "Latin-ASCII")),
+  Cluster = df_clean$Cluster
+)
 
+# 2. Pobranie mapy
+europe_map <- ne_countries(scale = "medium", returnclass = "sf", continent = "Europe")
+europe_map$name_clean <- tolower(stri_trans_general(europe_map$name, "Latin-ASCII"))
 
+# 3. Połączenie
+map_data_clust <- europe_map %>%
+  left_join(ranking_clusters, by = c("name_clean" = "kraj_clean"))
 
-
+# 4. Wykres
+ggplot(map_data_clust) +
+  geom_sf(aes(fill = Cluster), color = "grey40", size = 0.2) +
+  scale_fill_brewer(palette = "Set1", name = "Numer Grupy", na.value = "grey90") +
+  labs(
+    title = "Segmentacja Rynków Pracy w Europie",
+    subtitle = "Metoda k-średnich",
+    caption = "Źródło: Opracowanie własne"
+  ) +
+  theme_minimal() +
+  coord_sf(xlim = c(-25, 45), ylim = c(34, 72)) +
+  theme(legend.position = "bottom")
+```
 
 
 
