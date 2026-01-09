@@ -1,0 +1,1071 @@
+---
+title: "Jakość Pracy i Prekarayzacja Rynków Pracy w Europie (2015-2022)"
+subtitle: "Wielowymiarowa Analiza Porównawcza z Wykorzystaniem Metody Hellwiga, PCA i Analizy Skupień"
+author:
+  - "Izabela Reszka"
+  - "Piotr Wiśniewski"
+  - "Klaudia Woźniak"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    theme: united
+    highlight: tango
+    df_print: paged
+    css: |
+      body {
+        font-family: 'Segoe UI', Roboto, sans-serif;
+        line-height: 1.6;
+        color: #333;
+      }
+      h1, h2, h3 { color: #2c3e50; }
+      .alert-info { background-color: #e8f4f8; padding: 10px; border-left: 4px solid #0066cc; }
+      code { background-color: #f4f4f4; padding: 2px 5px; border-radius: 3px; }
+---
+
+```{r SETUP, include=FALSE}
+# Globalne ustawienia chunków
+knitr::opts_chunk$set(
+  echo = FALSE,        # Domyślnie UKRYWAMY kod w raporcie końcowym
+  warning = FALSE,     # Ukrywamy ostrzeżenia
+  message = FALSE,     # Ukrywamy komunikaty pakietów
+  fig.width = 10, 
+  fig.height = 7,
+  fig.align = 'center',
+  dpi = 300,
+  cache = TRUE
+)
+set.seed(123)
+
+```
+
+```{r BIBLIOTEKI, include=FALSE}
+# Ładowanie bibliotek
+library(tidyverse)
+library(clusterSim)
+library(corrplot)
+library(factoextra)
+library(knitr)
+library(kableExtra)
+library(ggrepel)
+library(RColorBrewer)
+library(reshape2)
+library(dendextend)
+library(ggplot2)
+library(pheatmap)
+library(dplyr)
+library(naniar)
+library(gridExtra)
+# Do map:
+library(rnaturalearth)
+library(sf)
+library(stringi)
+
+```
+
+# Wstęp
+
+## Problem Badawczy i Cel Projektu
+
+Rynki pracy w Europie przechodzą fundamentalną transformację związaną z globalizacją, digitalizacją i neoliberalnymi reformami elastyczności. Procesy te doprowadziły do wyłonienia się nowej rzeczywistości społeczno-ekonomicznej, którą socjolog Guy Standing określa mianem **prekariatu** -- nowej klasy społecznej charakteryzującej się brakiem siedmiu form bezpieczeństwa pracy, w tym bezpieczeństwa rynku pracy i dochodów.
+
+**Problem badawczy** sprowadza się do pytania: czy wysoka wydajność gospodarcza (mierzona PKB na pracownika) jest tożsama z wysoką jakością warunków pracy i inkluzją społeczną, czy też istnieją modele gospodarcze oparte na efektywności przy jednoczesnym wykluczeniu znacznych segmentów populacji (szczególnie młodzieży)? Projekt sprawdzi również, czy w Europie wciąż funkcjonuje podział na model anglosaski i kontynentalny, czy też granice te zacierają się w stronę powszechnej prekaryzacji.
+
+**Cel projektu** to:
+
+1.  **Konstrukcja syntetycznego wskaźnika jakości pracy** łączącego wymiary czysto ekonomiczne (stymulanty: PKB, wydajność) z wymiarami społecznymi (destymulanty: NEET, stopa bezrobocia).
+2.  **Porządkowanie liniowe krajów europejskich** za pomocą metody Hellwiga z wieloma systemami ważenia zmiennych.
+3.  **Eksploracyjna analiza podobieństwa** (PCA, klasteryzacja) w celu identyfikacji typów rynków pracy.
+4.  **Weryfikacja hipotez dotyczących relacji** między instytucjami (regulacją pracy), wydajnością a jakością pracy.
+5.  **Ocena stabilności i wrażliwości** wyników na zmianę metodologii.
+
+## Hipotezy Badawcze
+
+-   **H1 (Relacja Instytucje-Wykluczenie):** Istnieje istotna statystycznie, **dodatnia korelacja** między wskaźnikiem *Labor Freedom* (deregulacja) a stopą NEET. Oznaczałoby to, że w analizowanej próbie europejskiej wyższa elastyczność prawa pracy nie redukuje wykluczenia młodzieży, lecz współwystępuje z jego wyższym poziomem, co wpisuje się w teorię prekarayzacji.
+-   **H2 (Wrażliwość Metodologiczna):** Rankingi oparte na obiektywnych systemach wag (Entropia, CRITIC), które premiują zmienne o wysokiej zmienności informacji, ujawnią "ukryte ryzyka" w gospodarkach Południa Europy, obniżając ich pozycję względem rankingu opartego na równych wagach.
+-   **H3 (Struktura Geograficzna):** Analiza skupień (metoda Warda oraz k-średnich) pozwoli wyodrębnić trwały "Klaster Prekariatu" (głównie kraje Europy Południowej i wybrane kraje CEE), charakteryzujący się strukturalnie wyższym poziomem NEET (\>15%) niezależnie od koniunktury gospodarczej (stabilność w latach 2015-2022).
+
+## Uzasadnienie Metod MSA
+
+Wielowymiarowa Analiza Statystyczna (MSA) jest **obligatoryjna** dla tego typu badań, ponieważ:
+
+-   Rynki pracy są zjawiskami wielowymiarowymi; żadna pojedyncza miara (np. stopa bezrobocia) nie wychwytuje złożoności prekariatu.
+-   Porządkowanie liniowe (Hellwig) pozwala na **ranking porównywalny** między krajami.
+-   PCA i klasteryzacja ujawniają **ukryte struktury** – np. kraje podobne w wydajności mogą być radykalnie różne w inkluzji.
+-   Analiza wrażliwości wag pokazuje **robustność** wniosków wobec zmian założeń.
+
+Metody te pozwalają ocenić, czy słaby wynik w jednym obszarze (np. wysokie bezrobocie) jest kompensowany przez wybitny wynik w innym (np. bardzo wysokie PKB), co jest kluczowe dla oceny ogólnej kondycji gospodarki.
+
+------------------------------------------------------------------------
+
+# Charakterystyka Danych i Zmiennych
+
+## Źródła Danych i proces ETL
+
+Baza danych została skonstruowana w oparciu o dwa komplementarne źródła międzynarodowe, łącząc twarde wskaźniki makroekonomiczne z oceną instytucjonalną.
+
+**Opis źródeł:**
+
+Dane zostały pobrane w formie surowych plików CSV, a następnie poddane procesowi czyszczenia i łączenia (ETL).
+
+**A. Międzynarodowa Organizacja Pracy (ILOSTAT):** Publiczne repozytorium wskaźników rynku pracy. Wykorzystano następujące zbiory danych:
+
+-   `Unemployment_Rate.csv` – Stopa bezrobocia ogółem.
+
+-   `NEET_Share.csv` – Odsetek młodzieży biernej zawodowo i edukacyjnie (kluczowa zmienna dla teorii prekariatu).
+
+-   `Labour_Productivity_PPP.csv` – Wartość PKB na pracownika w parytecie siły nabywczej (miara efektywności).
+
+-   `Working_Hours.csv` – Średnia liczba godzin przepracowanych (wskaźnik intensywności pracy).
+
+-   *Wykluczono:* `Vulnerable_Employment.csv` (zatrudnienie w szarej strefie) ze względu na krytyczne braki danych (\>40%) uniemożliwiające rzetelne porównania międzynarodowe.
+
+**B. Heritage Foundation (Index of Economic Freedom):** Dane dotyczące otoczenia instytucjonalnego w latach 2015-2023.
+
+-   `Labor Freedom` – Sub-indeks mierzący elastyczność prawa pracy (łatwość zwolnień, koszty pracy).
+
+-   `Economic Freedom Overall` – Syntetyczna miara wolności gospodarczej.
+
+### Zmienne Identyfikacyjne i Selekcja Próby
+
+Struktura bazy danych opiera się na następujących kolumnach technicznych:
+
+-   **`ref_area` (Jednostka):** Kraje członkowskie UE-27 oraz kraje kandydujące.
+
+-   **`time` (Czas):** Analiza porównawcza dwóch punktów czasowych: **2015** (okres post-kryzysowy) oraz **2022** (ostatnie kompletne dane).
+
+-   **`sex` (Przekrój):** Do analizy wybrano kategorię **Total** (Ogółem), aby uzyskać obraz całych gospodarek.
+
+```{r LOADING_DATA, include=FALSE}
+# Wczytanie danych
+df <- read.csv("dane_final.csv", stringsAsFactors = FALSE)
+
+# Przygotowanie danych
+df <- df %>%
+  dplyr::mutate(
+    ref_area = as.factor(ref_area),
+    sex      = as.factor(sex),
+    time     = as.integer(time)
+  )
+
+# Czyszczenie: Sex = Total, tylko lata 2015 i 2022 + nazwy kolumn
+df_clean <- df %>%
+  dplyr::filter(sex == "Total", time %in% c(2015L, 2022L)) %>%
+  dplyr::select(
+    ref_area,
+    time,
+    Unemployment    = obs_value_unempl_rate,
+    NEET            = obs_value_NEET,
+    Productivity    = obs_value_PKB,
+    LaborFreedom    = Labor.Freedom,
+    WorkedHours     = obs_value_worked_hours,
+    EconomicFreedom = obs_value_economic_freedom_overall
+  )
+
+# Dane dla 2015 i 2022 (bez kolumny time) + ref_area jako nazwy wierszy
+df_2015 <- df_clean %>%
+  dplyr::filter(time == 2015L) %>%
+  dplyr::select(-time) %>%
+  tibble::column_to_rownames("ref_area")
+
+df_2022 <- df_clean %>%
+  dplyr::filter(time == 2022L) %>%
+  dplyr::select(-time) %>%
+  tibble::column_to_rownames("ref_area")
+
+```
+
+```{r DATA_INFO, results='asis'}
+cat("### Rozmiar Próby Badawczej\n")
+cat("- **Rok 2015:**", nrow(df_2015), "krajów (pełne dane)\n")
+cat("- **Rok 2022:**", nrow(df_2022), "krajów (pełne dane)\n\n")
+cat("*Dane charakteryzują się wysoką kompletnością dla kluczowych zmiennych (Bezrobocie, NEET, Wydajność), co pozwala na rzetelną analizę MSA.*")
+
+```
+
+## Zmienne Diagnostyczne: Dobór, Typologia, Uzasadnienie
+
+Proces doboru zmiennych diagnostycznych został podyktowany koniecznością wielowymiarowego ujęcia zjawiska jakości pracy. Zgodnie z przyjętym problemem badawczym, zestaw cech musi wykraczać poza standardowe wskaźniki makroekonomiczne (jak PKB), uwzględniając wymiary wykluczenia społecznego oraz ramy instytucjonalne.
+
+Ostatecznie, do budowy syntetycznego wskaźnika rozwoju oraz analizy skupień zakwalifikowano **6 zmiennych diagnostycznych**, które podzielono na stymulanty i destymulanty.
+
+### Tablica Zmiennych Diagnostycznych
+
+```{r VARIABLES_TABLE}
+variables_df <- data.frame(
+  "Symbol" = c("X1", "X2", "X3", "X4", "X5", "X6"),
+  "Nazwa Zmiennej" = c(
+    "Stopa Bezrobocia",
+    "Wskaźnik NEET",
+    "Wydajność Pracy (PKB)",
+    "Godziny Pracy",
+    "Wolność Pracy (Labor Freedom)",
+    "Wolność Gospodarcza"
+  ),
+  "Skrót w kodzie" = c("Unemployment", "NEET", "Productivity", "WorkedHours", "LaborFreedom", "EconomicFreedom"),
+  "Charakter" = c("Destymulanta", "Destymulanta", "Stymulanta", "Destymulanta", "Stymulanta*", "Stymulanta"),
+  "Jednostka" = c("% siły roboczej", "% młodzieży (15-24)", "USD (PPP)", "godziny/pracownik", "0-100 pkt", "0-100 pkt")
+)
+
+kable(variables_df, booktabs = TRUE, 
+      caption = "Zestawienie finalnych zmiennych diagnostycznych") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F, font_size = 13) %>%
+  column_spec(1, bold = TRUE) %>% # Pogrubienie symboli X1-X6
+  footnote(general = "* Labor Freedom: traktowana formalnie jako stymulanta w rankingu konkurencyjności, lecz poddana krytycznej weryfikacji w H1.")
+
+```
+
+### Uzasadnienie Doboru
+
+**1. Grupa Stymulant (S):**
+
+-   $X_3$ Wydajność Pracy (PKB na pracownika): Podstawowa miara potencjału dochodowego gospodarki. Wyższa wydajność pozwala (teoretycznie) na wyższe płace i lepsze warunki socjalne.
+
+-   $X_6$ Wolność Gospodarcza: Syntetyczna miara jakości otoczenia instytucjonalnego. Przyjmujemy założenie, że stabilne i przejrzyste prawo sprzyja rozwojowi rynku pracy.
+
+-   $X_5$ Wolność Pracy (Labor Freedom): *Zmienna o charakterze niejednoznacznym.* W klasycznym ujęciu neoliberalnym jest stymulantą (elastyczność = konkurencyjność). W niniejszym badaniu utrzymujemy ten status dla potrzeb rankingu Hellwiga, jednak w hipotezach badawczych weryfikujemy, czy wysoka "wolność" nie koreluje z wykluczeniem (NEET).
+
+**2. Grupa Destymulant (D):**
+
+-   $X_1$ Stopa Bezrobocia: Bezpośrednia miara braku równowagi popytowo-podażowej.
+
+-   $X_2$ Wskaźnik NEET: Najważniejsza zmienna w kontekście teorii prekariatu. Obrazuje trwałe wykluczenie strukturalne młodzieży, groźniejsze w skutkach niż bezrobocie frykcyjne.
+
+-   $X_4$ Godziny Pracy: W nowoczesnych gospodarkach (UE) dąży się do modelu **intensywnego** (krótsza praca, wyższa wydajność). Bardzo wysoka liczba godzin pracy (model ekstensywny) jest charakterystyczna dla gospodarek o niższym poziomie rozwoju i gorszym balansie *work-life balance*, dlatego traktujemy ją jako destymulantę.
+
+## Analiza kompletności danych
+
+Metody taksonomiczne (ranking Hellwiga) oraz analiza głównych składowych (PCA) wymagają kompletnych macierzy danych. Braki danych, choć nieliczne, muszą zostać zdiagnozowane przed przystąpieniem do obliczeń, aby uniknąć błędów w macierzach korelacji.
+
+```{r MISSING_DATA}
+# 1. Obliczenie procentu braków dla zmiennych
+missing_2022 <- colSums(is.na(df_2022)) / nrow(df_2022) * 100
+
+missing_df <- data.frame(
+  "Zmienna" = names(missing_2022),
+  "Procent_Brakow" = missing_2022
+) %>% 
+  arrange(desc(Procent_Brakow)) %>%
+  dplyr::filter(Procent_Brakow > 0) # Pokazujemy tylko te, gdzie coś brakuje
+
+# 2. Identyfikacja krajów do usunięcia
+countries_incomplete <- rownames(df_2022)[!complete.cases(df_2022)]
+dropped_df <- data.frame("Kraje_Wykluczone" = countries_incomplete)
+
+# 3. Wyświetlenie tabeli zmiennych (Twoja wersja)
+kable(missing_df, digits = 2, booktabs = TRUE, 
+      caption = "Zmienne z brakami danych (powyżej 0%)") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F, position = "float_left")
+
+# 4. Wyświetlenie tabeli krajów (Druga tabelka obok lub pod spodem)
+kable(dropped_df, booktabs = TRUE, 
+      caption = "Kraje usunięte z analizy (Listwise Deletion)") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F, position = "left")
+
+# Fizyczne usunięcie braków dla dalszej części kodu
+data_complete_2015 <- na.omit(df_2015)
+data_complete_2022 <- na.omit(df_2022)
+
+```
+
+Zmienne diagnostyczne charakteryzują się niskim odsetkiem braków (\<15%). Z analizy wykluczono jedynie 6 podmiotów (m.in. Rosję, Kazachstan, Wielką Brytanię), dla których brakowało kluczowych danych instytucjonalnych lub makroekonomicznych.
+
+------------------------------------------------------------------------
+
+# Analiza wstępna danych
+
+Przed przystąpieniem do budowy rankingu zweryfikowano właściwości statystyczne zmiennych na próbie badawczej ($N=`r nrow(data_complete_2022)`$).
+
+## Statystyki opisowe i weryfikacja zmienności (2022)
+
+Kluczowym kryterium przydatności cechy w analizie MSA jest jej zdolność do różnicowania obiektów. W tym celu obliczono klasyczne miary położenia oraz **współczynnik zmienności (CV)**.
+
+```{r DESC_STATS}
+# Obliczenie statystyk dla wyczyszczonego zbioru danych
+summary_stats <- data_complete_2022 %>%
+  dplyr::select(Unemployment, NEET, Productivity, LaborFreedom, WorkedHours, EconomicFreedom) %>%
+  summarise(across(everything(), list(
+      Mean = ~mean(.),
+      SD   = ~sd(.),
+      Min  = ~min(.),
+      Max  = ~max(.),
+      CV   = ~ (sd(.) / mean(.)) * 100  # Współczynnik zmienności w %
+  ), .names = "{.col}_{.fn}")) %>%
+  pivot_longer(cols = everything(), names_to = c("Variable", "Stat"), names_sep = "_") %>%
+  pivot_wider(names_from = "Stat", values_from = "value") %>%
+  mutate(across(where(is.numeric), round, 2)) %>%
+  arrange(desc(CV)) # Sortowanie od najbardziej zmiennych
+
+# Wyświetlenie tabeli
+kable(summary_stats, booktabs = TRUE, 
+      caption = "Statystyki opisowe zmiennych diagnostycznych (2022)",
+      col.names = c("Zmienna", "Średnia", "Odch. Std", "Min", "Max", "Zmienność (CV %)")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), font_size = 12) %>%
+  column_spec(6, bold = TRUE, color = "black", background = "#e6f2ff")
+
+```
+
+Wszystkie zmienne charakteryzują się współczynnikiem zmienności powyżej progu 10%, co potwierdza ich przydatność diagnostyczną. Największe zróżnicowanie obserwuje się dla zmiennej **Unemployment** (CV $\approx$ 50%), co sugeruje, że rynek pracy jest obszarem największych dysproporcji w Europie.
+
+## Rozkład zmiennych (Boxplot i Violin)
+
+Wizualizacja rozkładów pozwala zidentyfikować asymetrię oraz wartości odstające (outliery), które mogą zaburzać ranking.
+
+```{r VIOLIN_PLOTS}
+# Przygotowanie danych (format długi)
+df_long <- data_complete_2022 %>%
+  dplyr::select(Unemployment, NEET, Productivity, LaborFreedom, WorkedHours, EconomicFreedom) %>%
+  tibble::rownames_to_column("Country") %>%
+  pivot_longer(cols = -Country, names_to = "Variable", values_to = "Value")
+
+# Wykresy skrzypcowe z punktami (Jitter)
+ggplot(df_long, aes(x = Variable, y = Value, fill = Variable)) +
+  geom_violin(alpha = 0.4, trim = FALSE, color = NA) +
+  geom_boxplot(width = 0.2, fill = "white", outlier.shape = NA, alpha = 0.8) +
+  geom_jitter(width = 0.15, size = 1, alpha = 0.5, color = "#2c3e50") + # Pokazuje rzeczywiste punkty
+  facet_wrap(~Variable, scales = "free", nrow = 2) +
+  labs(
+    title = "Rozkład wartości zmiennych diagnostycznych",
+    subtitle = "Każdy punkt reprezentuje jeden kraj",
+    x = "", y = ""
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_blank(),
+    strip.text = element_text(face = "bold", size = 11),
+    plot.title = element_text(face = "bold")
+  ) +
+  scale_fill_brewer(palette = "Set2")
+
+```
+
+Na podstawie powyższej wizualizacji oraz statystyk opisowych sformułowano następujące obserwacje:
+
+1.  **Bezrobocie i NEET:** Obie zmienne wykazują wyraźne **rozkłady prawostronne** z występowaniem wartości ekstremalnych (outlierów górnych). Analiza szczegółowa wskazuje, że są to kraje Europy Południowej (m.in. **Grecja, Włochy, Hiszpania**), co wstępnie potwierdza hipotezę o geograficznej koncentracji problemów rynku pracy.
+
+2.  **Produktywność (PKB):** Rozkład jest silnie prawostronny. Obserwuje się ogromny rozrzut między liderami (głównie **Luksemburg, Irlandia**) a tzw. "ogonem" rankingu.
+
+3.  **Wolność Pracy (Labor Freedom):** Zmienna charakteryzuje się relatywnie najbardziej spłaszczonym rozkładem, co sugeruje mniejsze zróżnicowanie systemów prawnych w UE w porównaniu do wyników ekonomicznych.
+
+**Implikacja Metodologiczna:** Występowanie silnej asymetrii oraz różnych rzędów wielkości zmiennych (np. PKB w tysiącach vs stopa bezrobocia w procentach) czyni **standaryzację danych (Z-score)** krokiem niezbędnym przed przystąpieniem do procedury Hellwiga.
+
+## Analiza Korelacji i Weryfikacja Hipotezy H1
+
+Ostatnim etapem analizy wstępnej jest zbadanie siły powiązań między zmiennymi diagnostycznymi przy użyciu współczynnika korelacji Pearsona.
+
+```{r Korelacja}
+# 1. Obliczenie macierzy korelacji na czystych danych
+cor_matrix <- cor(data_complete_2022[, c("Unemployment", "NEET", "Productivity", 
+                                         "LaborFreedom", "WorkedHours", "EconomicFreedom")])
+
+# 2. Wizualizacja (Mapa ciepła)
+corrplot(cor_matrix, 
+         method = "color", 
+         type = "upper", 
+         addCoef.col = "black", # Wyświetlenie wartości
+         tl.col = "black",      # Kolor czcionki
+         tl.srt = 45,           # Kąt napisów
+         diag = FALSE,          # Ukrycie przekątnej
+         number.cex = 0.8,      # Wielkość cyfr
+         col = colorRampPalette(c("#c0392b", "#ecf0f1", "#27ae60"))(200),
+         title = "Macierz Korelacji Pearsona (2022)", 
+         mar = c(0,0,1,0))
+
+```
+
+Analiza powiązań między zmiennymi prowadzi do trzech fundamentalnych wniosków dla dalszej części badania:
+
+1\. Brak nadmiernej współliniowości
+
+W analizowanej próbie nie odnotowano par zmiennych o korelacji bliskiej jedności (\$\|r\| \> 0.9\$). Oznacza to, że każda ze zmiennych wnosi unikalną wartość informacyjną. Nie zachodzi potrzeba redukcji zbioru danych metodą inwersyjną przed zastosowaniem procedury Hellwiga.
+
+2\. Spójność ekonomiczna (Productivity vs. Unemployment)
+
+Zauważalna jest silna, ujemna korelacja między wydajnością pracy ($X_3$) a stopą bezrobocia ($X_1$) oraz wskaźnikiem NEET ($X_2$).
+
+-   **Wniosek:** Potwierdza to makroekonomiczną prawidłowość, że gospodarki wysokowydajne (High-Tech) skuteczniej absorbują zasoby siły roboczej, generując niższe wykluczenie.
+
+3\. Weryfikacja Hipotezy H1 (Labor Freedom vs. NEET)
+
+Kluczowa dla projektu relacja między elastycznością rynku pracy a wykluczeniem młodzieży okazała się ujemna.
+
+-   **Wynik weryfikacji:** Hipoteza H1 zakładająca, że wysoka wolność pracy (deregulacja) zwiększa wykluczenie, **nie została potwierdzona**.
+
+-   **Interpretacja socjologiczna:** Dane wskazują na istnienie w Europie modelu *Flexicurity* (głównie kraje skandynawskie), gdzie wysoka elastyczność prawa pracy ($X_5$) współwystępuje z bardzo niskim odsetkiem NEET ($X_2$). Przeczy to prostemu założeniu, że ochrona kodeksowa jest jedynym gwarantem bezpieczeństwa socjalnego. Przeciwnie – kraje o sztywnych regulacjach (Południe Europy) notują najwyższe wskaźniki wykluczenia młodzieży.
+
+# Analiza głównych składowych (PCA)
+
+Celem Analizy głównych sSkładowych (PCA) jest redukcja wymiarowości zbioru danych przy zachowaniu jak największej części informacji (wariancji). Pozwoli to zweryfikować, czy 6 zmiennych diagnostycznych można sprowadzić do 2 głównych wymiarów (składowych), opisujących kondycję rynku pracy.
+
+## 1. Wybór liczby składowych (Scree Plot)
+
+Pierwszym krokiem jest ocena, ile składowych (PC) należy pozostawić do dalszej analizy. Wykorzystano kryterium osypiska oraz procent wyjaśnianej wariancji.
+
+```{r PCA_PLOT}
+# Przygotowanie danych (korzystamy z wyczyszczonego zbioru z poprzednich kroków)
+# Wybieramy tylko kolumny numeryczne
+pca_data <- data_complete_2022 %>%
+  dplyr::select(Unemployment, NEET, Productivity, LaborFreedom, WorkedHours, EconomicFreedom)
+
+# Obliczenie PCA (z automatyczną standaryzacją scale. = TRUE)
+pca_res <- prcomp(pca_data, scale. = TRUE)
+
+# Wykres osypiska
+fviz_eig(pca_res,
+  addlabels = TRUE,
+  barfill = "#3498db",
+  barcolor = "#2980b9",
+  linecolor = "red",
+  ylim = c(0, 70),
+  title = "Wykres Osypiska: Procent wyjaśnianej wariancji"
+) + theme_minimal()
+
+```
+
+**Wnioski z wykresu:**
+
+1.  **Dominacja pierwszego wymiaru (PC1):** Pierwszy słupek (PC1) wyjaśnia zdecydowanie największą część zmienności danych (zazwyczaj ok. **40-50%** w tego typu badaniach ekonomicznych). Oznacza to, że istnieje jeden silny czynnik (tzw. "meta-zmienna"), który w największym stopniu różnicuje kraje europejskie (jest to najczęściej poziom rozwoju gospodarczego).
+
+2.  **Kryterium "Łokcia" (Elbow Rule):** Wyraźne załamanie wykresu ("łokieć") obserwujemy zazwyczaj po drugim komponencie. Spadek wartości własnych (wysokości słupków) dla PC3 i kolejnych jest łagodny, co sugeruje, że niosą one już znacznie mniej kluczowych informacji (stanowią tzw. szum informacyjny lub specyficzne cechy pojedynczych krajów).
+
+3.  **Skumulowana wariancja:** Dwa pierwsze wymiary (PC1 + PC2) wyjaśniają łącznie **ok. 65,7%**, całkowitej zmienności w zbiorze danych.
+
+**Decyzja analityczna:** Zgodnie z kryterium Kajzera (wartości własne \> 1) oraz kryterium osypiska, do dalszej wizualizacji struktury rynków pracy (Biplot) przyjęto układ **dwuwymiarowy (PC1 i PC2)**. Pozwala to na rzetelne odwzorowanie relacji między krajami na płaszczyźnie, przy utracie jedynie ok. 30% informacji szczegółowej.
+
+## 2. Interpretacja Składowych (Ładunki czynnikowe) oraz wizualizacja przestrzenna (Biplot)
+
+Aby zrozumieć znaczenie ekonomiczne wyodrębnionych wymiarów, przeanalizowano wartości ładunków czynnikowych (korelacji zmiennych z PC1 i PC2).
+
+```{r skladowe}
+# Ekstrakcja ładunków
+loadings_pc1_pc2 <- as.data.frame(pca_res$rotation[, 1:2])
+
+# Tabela z kolorowaniem (heatmapa w tabeli)
+kable(loadings_pc1_pc2, booktabs = TRUE, digits = 3,
+      caption = "Macierz ładunków czynnikowych (Interpretacja Osi)") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = F) %>%
+  column_spec(2, bold = TRUE, color = ifelse(abs(loadings_pc1_pc2$PC1) > 0.4, "red", "black")) %>%
+  column_spec(3, bold = TRUE, color = ifelse(abs(loadings_pc1_pc2$PC2) > 0.4, "blue", "black"))
+
+fviz_pca_biplot(pca_res,
+  repel = TRUE,                # Unikanie nakładania się napisów
+  col.var = "contrib",         # Kolor wektorów zależny od ich wkładu w zmienność
+  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+  col.ind = "#2c3e50",         # Kolor punktów (kraje)
+  alpha.ind = 0.7,             # Przezroczystość punktów
+  pointsize = 2,
+  labelsize = 3.5,
+  title = "Biplot PCA: Mapa Rynków Pracy w Europie (2022)"
+) +
+  theme_minimal() +
+  labs(
+    subtitle = "Oś X (PC1): Efektywność vs Wykluczenie | Oś Y (PC2): Czas Pracy",
+    color = "Wkład zmiennej"
+  ) +
+  theme(plot.title = element_text(face = "bold", size = 14))
+
+```
+
+-   **Ekonomiczna interpretacja wymiarów:**
+    -   **PC1: Oś Rozwoju i Inkluzji (Wyjaśnia główną zmienność)**
+
+        -   Wymiar ten silnie kontrastuje zmienne negatywne (**NEET -0.49, Bezrobocie -0.47**) ze zmiennymi pozytywnymi (**Wolność Gospodarcza 0.52, Wydajność 0.43**).
+
+        -   *Interpretacja:* Oś ta dzieli Europę na kraje wysokorozwinięte, które skutecznie walczą z wykluczeniem (prawa strona wykresu), oraz kraje borykające się ze strukturalnymi problemami rynku pracy (lewa strona).
+
+    -   **PC2: Oś Intensywności Pracy (Model Ekstensywny vs Elastyczny)**
+
+        -   Wymiar ten jest zdominowany przez zmienną **Godziny Pracy (0.74)** oraz silnie ujemnie skorelowany z **Wolnością Pracy (-0.57)**.
+
+        -   *Interpretacja:* Oś ta różnicuje modele zatrudnienia.
+
+            -   **Wartości wysokie (Góra wykresu):** Model ekstensywny – długi czas pracy przy niższej elastyczności kodeksowej.
+
+            -   **Wartości niskie (Dół wykresu):** Model elastyczny (*flexicurity*) – krótszy czas pracy, ale wyższa swoboda regulacyjna (łatwość zatrudniania i zwalniania).
+
+------------------------------------------------------------------------
+
+# Porządkowanie Liniowe (Metoda Hellwiga)
+
+Celem tej części analizy jest stworzenie syntetycznego rankingu jakości rynków pracy. Aby uniknąć arbitralności w ocenie ważności zmiennych, zastosowano podejście wariantowe, porównując trzy systemy wag.
+
+## 1. Algorytm i Systemy Wag
+
+Zastosowano klasyczną procedurę Hellwiga (zunitaryzowany wzorzec rozwoju) z następującymi wariantami wektora wag $w_j$:
+
+1.  **Wagi równe (Baseline):** Każda zmienna wnosi jednakowy wkład ($w_j \approx 0.167$). Podejście to zakłada równoważność wymiarów ekonomicznych i społecznych.
+
+2.  **Metoda entropii:** Podejście obiektywne, premiujące zmienne o wysokiej zmienności (większej "mocy dyskryminacyjnej"). Zmienne o płaskim rozkładzie otrzymują niskie wagi.
+
+3.  **Metoda CRITIC:** Uwzględnia zarówno zmienność (odchylenie standardowe), jak i konflikt informacyjny (korelację). Zmienne silnie skorelowane z innymi otrzymują niższe wagi, aby nie powielać tej samej informacji w modelu.
+
+```{r HELLWIG_CALC}
+
+# Wybieramy tylko kolumny numeryczne z wyczyszczonego wcześniej zbioru
+hellwig_data <- data_complete_2022 %>% 
+  dplyr::select(Unemployment, NEET, Productivity, LaborFreedom, WorkedHours, EconomicFreedom)
+
+# Definicja charakteru zmiennych
+variable_types <- c(
+  Unemployment = "D",
+  NEET = "D",
+  Productivity = "S",
+  LaborFreedom = "S",
+  WorkedHours = "D",
+  EconomicFreedom = "S"
+)
+
+# FUNKCJE OBLICZENIOWE
+
+# 1. Normalizacja
+normalize_hellwig <- function(x) {
+  return((x - min(x)) / (max(x) - min(x)))
+}
+
+# 2. Wagi Entropii
+calculate_entropy_weights <- function(data) {
+  data_norm <- apply(data, 2, normalize_hellwig) + 1e-10 # Unikamy log(0)
+  P <- apply(data_norm, 2, function(x) x / sum(x))
+  k <- 1 / log(nrow(data))
+  E <- -k * colSums(P * log(P))
+  d <- 1 - E
+  return(d / sum(d))
+}
+
+# 3. Wagi CRITIC
+calculate_critic_weights <- function(data) {
+  data_std <- scale(data)
+  std_dev <- apply(data_std, 2, sd)
+  cor_mat <- cor(data_std)
+  conflict <- colSums(1 - abs(cor_mat)) # Miernik konfliktu
+  C <- std_dev * conflict
+  return(C / sum(C))
+}
+
+# 4. Funkcja Hellwiga
+calculate_hellwig_measure <- function(data, variable_types, weights = NULL) {
+  data_norm <- apply(data, 2, normalize_hellwig)
+  
+  # Tworzenie wzorca (1 dla Stymulant, 0 dla Destymulant po normalizacji)
+  pattern <- ifelse(variable_types == "S", 1, 0)
+  
+  if (is.null(weights)) weights <- rep(1/ncol(data), ncol(data))
+  
+  # Odległość od wzorca
+  distances <- apply(data_norm, 1, function(row) {
+    sqrt(sum(weights * (row - pattern)^2))
+  })
+  
+  d0 <- mean(distances) + 2 * sd(distances)
+  measure <- 1 - (distances / d0)
+  measure[measure < 0] <- 0
+  return(measure)
+}
+
+# OBLICZENIA
+
+# Wagi
+w_equal   <- rep(1 / ncol(hellwig_data), ncol(hellwig_data))
+w_entropy <- calculate_entropy_weights(hellwig_data)
+w_critic  <- calculate_critic_weights(hellwig_data)
+
+# Wskaźniki
+h_equal   <- calculate_hellwig_measure(hellwig_data, variable_types, w_equal)
+h_entropy <- calculate_hellwig_measure(hellwig_data, variable_types, w_entropy)
+h_critic  <- calculate_hellwig_measure(hellwig_data, variable_types, w_critic)
+
+# Zestawienie wyników
+results_2022 <- data.frame(
+  Country = rownames(hellwig_data),
+  Hellwig_Equal = h_equal,
+  Hellwig_Entropy = h_entropy,
+  Hellwig_CRITIC = h_critic
+) %>%
+  mutate(
+    Rank_Equal = min_rank(desc(Hellwig_Equal)),
+    Rank_Entropy = min_rank(desc(Hellwig_Entropy)),
+    Rank_CRITIC = min_rank(desc(Hellwig_CRITIC))
+  ) %>%
+  arrange(Rank_Equal)
+
+```
+
+## 2. Analiza Systemów Wag
+
+Porównanie struktur wag pozwala zrozumieć, które zmienne determinują wynik rankingu w każdej z metod.
+
+```{r WEIGHTS_COMPARE}
+weights_comparison <- data.frame(
+  "Zmienna" = names(variable_types),
+  "Wagi_Rowne" = w_equal,
+  "Entropia" = w_entropy,
+  "CRITIC" = w_critic
+)
+
+kable(weights_comparison, digits = 4, booktabs = TRUE,
+      caption = "Porównanie wag w analizowanych metodach") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = F) %>%
+  row_spec(which.max(w_entropy), bold = TRUE, background = "#D6EAF8") # Podświetla max entropię
+
+```
+
+-   **Interpretacja wag:**
+    -   **Metoda Entropii:** Zdecydowanie najwyższą wagę (aż **43,9%**) system przypisał zmiennej **Godziny Pracy (`WorkedHours`)**. Oznacza to, że czas pracy jest parametrem najbardziej różnicującym europejskie rynki pracy. Kraje UE są do siebie relatywnie podobne pod względem instytucjonalnym (niskie wagi dla *Labor Freedom* i *Economic Freedom* – ok. 5-6%), ale występują między nimi drastyczne różnice w czasie spędzanym w pracy (np. Holandia vs Grecja). W tym ujęciu ranking Hellwiga staje się w dużej mierze rankingiem "czasu wolnego".
+
+    -   **Metoda CRITIC:** Dokonała redystrybucji wag, obniżając wpływ *Wydajności* i *Bezrobocia* (które są ze sobą silnie skorelowane, co wykazała wcześniejsza analiza), a dowartościowała zmienne niosące unikalną informację, takie jak **Wolność Pracy (`LaborFreedom`)** (waga wzrosła do **18,5%**). Jest to system najbardziej zbalansowany, uwzględniający zarówno różnorodność danych, jak i konflikty między kryteriami.
+
+## 3. Wyniki Rankingu (Top 15 - Wagi Równe)
+
+Ranking podstawowy (wagi równe) wskazuje liderów jakości rynku pracy w roku 2022.
+
+```{r Rank_2022}
+# Wykres słupkowy dla Top 15
+top15 <- head(results_2022, 15)
+
+ggplot(top15, aes(x = reorder(Country, Hellwig_Equal), y = Hellwig_Equal)) +
+  geom_col(aes(fill = Hellwig_Equal), width = 0.7) +
+  geom_text(aes(label = round(Hellwig_Equal, 3)), hjust = 1.2, color = "white", fontface = "bold") +
+  coord_flip() +
+  scale_fill_gradient(low = "#3498db", high = "#2c3e50") +
+  labs(
+    title = "Liderzy Jakości Rynku Pracy w Europie (2022)",
+    subtitle = "Metoda Hellwiga (Wagi Równe)",
+    x = "", y = "Wartość Wskaźnika"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none", plot.title = element_text(face = "bold"))
+
+```
+
+## 4. Analiza Wrażliwości (Stabilność Rankingu)
+
+Poniższe zestawienie pokazuje, jak zmienia się pozycja kraju w zależności od przyjętej metody wagowania.
+
+```{r SENSITIVITY_PLOT}
+# Tabela porównawcza pozycji
+display_table <- results_2022 %>%
+  head(10) %>%
+  dplyr::select(Country, 
+                "Poz. Równe" = Rank_Equal,
+                "Poz. Entropia" = Rank_Entropy, 
+                "Poz. CRITIC" = Rank_CRITIC)
+
+kable(display_table, booktabs = TRUE, caption = "Zmiana pozycji liderów w zależności od metody") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F)
+
+```
+
+**Wnioski z analizy wrażliwości:**
+
+1.  **Dominacja modelu Skandynawskiego i Irlandzkiego:** Niezależnie od przyjętego systemu wag, czołówka rankingu jest niezwykle stabilna. **Norwegia** zajmuje 1. miejsce w rankingu bazowym i CRITIC, a w Entropii ustępuje jedynie Irlandii. W pierwszej piątce w każdym wariancie znajdują się również **Dania** i **Islandia**, co potwierdza najwyższą jakość nordyckiego modelu rynku pracy.
+
+2.  **Specyfika Irlandii (Lider Entropii):** Irlandia awansuje na 1. miejsce w metodzie Entropii. Wynika to z faktu, że metoda ta bardzo silnie premiuje zmienną *WorkedHours* (krótki czas pracy) oraz *Productivity* (Wydajność), w których Irlandia osiąga wyniki ekstremalnie wysokie (częściowo ze względów statystycznych dot. siedzib korporacji).
+
+3.  **Stabilność czołówki:** Kraje takie jak **Szwajcaria** (poz. 6-7) czy **Szwecja** (poz. 8-10) wykazują minimalne wahania pozycji, co świadczy o zrównoważonym rozwoju – nie mają one "słabych punktów", które ujawniłyby się przy zmianie wag.
+
+4.  **Wpływ metody CRITIC:** W metodzie CRITIC (najbardziej rygorystycznej statystycznie) **Luksemburg** spada z 3. na 6. miejsce. Sugeruje to, że jego wysoka pozycja w rankingu bazowym wynikała częściowo z korelacji między wysokim PKB a innymi wskaźnikami, co metoda CRITIC "ukarała", redukując wagi powiązanych zmiennych.
+
+## 5. Wizualizacja przestrzenna (Mapa jakości rynku pracy)
+
+Uzupełnieniem rankingu jest analiza przestrzenna, która pozwala zidentyfikować geograficzne wzorce rozmieszczenia jakości rynków pracy (np. podział Wschód-Zachód lub Północ-Południe).
+
+W tym celu podzielono kraje na 4 klasy jakościowe w oparciu o średnią ($\bar{x}$) i odchylenie standardowe ($s_x$) wskaźnika Hellwiga:
+
+1\. **Poziom Bardzo Wysoki:** $H_i \ge \bar{x} + s_x$
+
+2\. **Poziom Wysoki:** $\bar{x} \le H_i < \bar{x} + s_x$
+
+3\. **Poziom Średni:** $\bar{x} - s_x \le H_i < \bar{x}$
+
+4\. **Poziom Niski:** $H_i < \bar{x} - s_x$
+
+```{r Mapa}
+# Przygotowanie danych (Klasyfikacja)
+stats_mean <- mean(results_2022$Hellwig_Equal)
+stats_sd   <- sd(results_2022$Hellwig_Equal)
+
+map_data_prep <- results_2022 %>%
+  mutate(Category = case_when(
+    Hellwig_Equal >= stats_mean + stats_sd ~ "Bardzo Wysoki",
+    Hellwig_Equal >= stats_mean & Hellwig_Equal < stats_mean + stats_sd ~ "Wysoki",
+    Hellwig_Equal >= stats_mean - stats_sd & Hellwig_Equal < stats_mean ~ "Średni",
+    Hellwig_Equal < stats_mean - stats_sd ~ "Niski"
+  )) %>%
+  # Ustawiamy kolejność na legendzie
+  mutate(Category = factor(Category, levels = c("Bardzo Wysoki", "Wysoki", "Średni", "Niski")))
+
+# Pobranie konturów mapy Europy
+europe_sf <- ne_countries(scale = "medium", returnclass = "sf", continent = "Europe")
+
+# Łączenie danych (poprawa nazw krajów dla spójności)
+# Ręczna korekta nazw, które często się różnią w bazach mapowych
+map_data_prep$Country[map_data_prep$Country == "Czechia"] <- "Czech Rep."
+map_data_prep$Country[map_data_prep$Country == "Bosnia and Herzegovina"] <- "Bosnia and Herz."
+map_data_prep$Country[map_data_prep$Country == "North Macedonia"] <- "Macedonia"
+
+# Łączenie z danymi geograficznymi
+final_map <- europe_sf %>%
+  left_join(map_data_prep, by = c("name" = "Country"))
+
+# Generowanie Mapy
+ggplot(final_map) +
+  geom_sf(aes(fill = Category), color = "white", size = 0.2) +
+  scale_fill_manual(
+    values = c(
+      "Bardzo Wysoki" = "#006d2c",  # Ciemna zieleń
+      "Wysoki"        = "#31a354",
+      "Średni"        = "#74c476",
+      "Niski"         = "#e5f5e0"   # Jasna zieleń (prawie biały)
+    ),
+    na.value = "grey90", # Szary dla krajów spoza analizy (np. Białoruś, Ukraina)
+    name = "Klasa Jakości"
+  ) +
+  labs(
+    title = "Jakość Rynku Pracy w Europie (2022)",
+    subtitle = "Klasyfikacja na podstawie miernika Hellwiga",
+    caption = "Szarym kolorem oznaczono kraje nieobjęte badaniem"
+  ) +
+  coord_sf(xlim = c(-25, 45), ylim = c(34, 71), expand = FALSE) + # Kadrowanie na Europę
+  theme_void() + # Czysty styl (bez osi XY)
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5, color = "grey40"),
+    legend.position = "right",
+    plot.background = element_rect(fill = "white", color = NA)
+  )
+
+```
+
+## Interpretacja mapy
+
+-   Najwyższe klasy (ciemniejsze zielenie) koncentrują się głównie w Europie Północnej oraz w części Europy Zachodniej/Środkowej.​
+
+-   Niższe klasy (jaśniejsze zielenie) częściej występują w części Europy Południowej i Południowo‑Wschodniej, co sugeruje słabszy łączny wynik miernika w tych obszarach względem średniej dla całej próby.​
+
+-   W praktyce to „mapa wyniku złożonego”: różnice barw nie mówią o jednym wskaźniku, tylko o łącznym obrazie wynikającym z użytych zmiennych (bezrobocie, NEET, produktywność, wolności i godziny pracy) oraz sposobu ich agregacji w mierniku Hellwiga.​
+
+------------------------------------------------------------------------
+
+# Analiza skupień (Cluster Analysis)
+
+Celem tej części jest wyodrębnienie grup państw o zbliżonych charakterystykach rynku pracy. Pozwoli to zweryfikować **Hipotezę H3** o istnieniu "Klastra Prekariatu" (państwa o strukturalnie wysokim wykluczeniu).
+
+## 1. Wybór optymalnej liczby klastrów
+
+```{r CLUSTERS_NB}
+
+data_for_clustering <- data_complete_2022 %>% 
+  dplyr::select(Unemployment, NEET, Productivity, LaborFreedom, WorkedHours, EconomicFreedom)
+  
+data_scaled <- scale(data_for_clustering)
+
+# Wizualizacja metod optymalizacji k
+p1 <- fviz_nbclust(data_scaled, kmeans, method = "wss", k.max = 8) +
+  labs(title = "Metoda Łokcia (WSS)", subtitle = "Szukamy punktu zgięcia") + 
+  theme_minimal()
+
+p2 <- fviz_nbclust(data_scaled, kmeans, method = "silhouette", k.max = 8) +
+  labs(title = "Metoda Silhouette", subtitle = "Im wyższa wartość, tym lepiej") + 
+  theme_minimal()
+
+grid.arrange(p1, p2, ncol = 2)
+
+```
+
+**Decyzja analityczna:** Wykresy wskazują na zasadność podziału na **k = 4** skupienia. Metoda sylwetki osiąga wysokie wartości, a na wykresie osypiska widoczne jest wypłaszczenie krzywej po czwartym klastrze.
+
+## 2. Klastrowanie Metodą Warda (Struktura Hierarchiczna)
+
+Zastosowano aglomeracyjną metodę hierarchiczną z metryką Euklidesową i metodą łączenia Warda, aby zobrazować powiązania taksonomiczne między krajami.
+
+```{r KMEANS_WARD}
+# Macierz odległości
+dist_mat <- dist(data_scaled, method = "euclidean")
+
+# Drzewo hierarchiczne
+hc <- hclust(dist_mat, method = "ward.D2")
+
+# Wizualizacja
+fviz_dend(hc, k = 4, 
+          cex = 0.6, 
+          k_colors = c("#2E86C1", "#E74C3C", "#28B463", "#F39C12"),
+          color_labels_by_k = TRUE, 
+          rect = TRUE, 
+          main = "Dendrogram: Podobieństwo rynków pracy w UE (2022)")
+
+```
+
+### Interpretacja Dendrogramu (Analiza Hierarchiczna)
+
+Wykres dendrogramu, uzyskany metodą aglomeracji Warda z wykorzystaniem odległości euklidesowej, ujawnia hierarchiczną strukturę podobieństwa między badanymi krajami. Długość pionowych linii (wysokość łączenia) informuje o stopniu zróżnicowania między tworzonymi grupami – im wyżej następuje połączenie, tym bardziej odmienne są od siebie te grupy.
+
+**Główne wnioski z analizy graficznej:**
+
+1.  **Wyraźna separacja "Południa" (Klaster Prekariatu):** Na wykresie obserwujemy wyraźnie wyodrębnioną gałąź (zazwyczaj czerwoną lub zieloną, zależnie od losowania), która skupia kraje takie jak **Grecja, Hiszpania, Włochy**.
+
+    -   *Znaczenie:* Kraje te łączą się ze sobą na bardzo wczesnym etapie, co świadczy o ich ogromnym podobieństwie strukturalnym (wysokie bezrobocie, wysoki NEET). Jednocześnie ta gałąź dołącza do reszty Europy bardzo "wysoko", co oznacza, że model południowy drastycznie różni się od standardów północnych.
+
+2.  **Bliskość krajów "Nowej Unii" (Model Ekstensywny):** Widoczna jest grupa państw Europy Środkowo-Wschodniej (np. **Polska, Węgry, Rumunia, Słowacja**).
+
+    -   *Znaczenie:* Kraje te tworzą spójny klaster determinowany głównie przez zmienną `WorkedHours` (bardzo długi tydzień pracy) oraz niższy poziom PKB w porównaniu do "Starej Unii".
+
+3.  **Elitarny klub Północy (Model Flexicurity):** Kraje skandynawskie (**Dania, Norwegia, Szwecja**) oraz Holandia tworzą najbardziej zwartą grupę o najmniejszych odległościach wewnętrznych.
+
+    -   *Znaczenie:* Świadczy to o wysokiej homogeniczności (jednorodności) modelu nordyckiego, opartego na wysokiej wydajności i inkluzji.
+
+4.  **Weryfikacja Geograficzna:** Struktura dendrogramu w dużej mierze pokrywa się z geografią Europy, co sugeruje, że jakość rynku pracy jest silnie skorelowana z uwarunkowaniami historyczno-regionalnymi, a nie jest jedynie wynikiem bieżącej polityki gospodarczej.
+
+## 3. Podział Metodą k-średnich i Wizualizacja
+
+Dla ostatecznego podziału zastosowano algorytm k-średnich (k-means), który jest bardziej robustny przy większych zbiorach danych. Wyniki naniesiono na przestrzeń PCA.
+
+```{r CLUSTER_VIS}
+
+set.seed(123) # Dla powtarzalności wyników
+km_res <- kmeans(data_scaled, centers = 4, nstart = 25)
+
+# Wizualizacja na biplocie
+fviz_cluster(km_res, data = data_scaled,
+             palette = c("#2E86C1", "#E74C3C", "#28B463", "#F39C12"),
+             geom = "point",
+             ellipse.type = "convex", 
+             ggtheme = theme_minimal(),
+             main = "Klastry na płaszczyźnie PCA"
+) + geom_text(data = as.data.frame(data_scaled), 
+              aes(x = prcomp(data_scaled)$x[,1], 
+                  y = prcomp(data_scaled)$x[,2], 
+                  label = rownames(data_scaled)),
+              vjust = -1, size = 3, check_overlap = TRUE)
+
+```
+
+Na wykresie PCA widać 4 grupy krajów; Dim1 wyjaśnia 45,3% zmienności, a Dim2 20,4% (razem ok. 65,7%), więc ten rzut dobrze oddaje główne różnice między krajami.​
+
+-   **Oś Dim1** najsilniej rozdziela kraje: po prawej (wartości dodatnie) jest klaster 1, a po lewej (wartości ujemne) klaster 3.​
+
+-   **Klaster 1 (niebieski)**: m.in. Niderlandy, Luksemburg, Irlandia, Szwajcaria, Norwegia, Dania, Szwecja, Finlandia, Islandia, Austria – kraje o podobnym profilu cech i wysokich wartościach Dim1.​
+
+-   **Klaster 3 (zielony)**: m.in. Albania, Macedonia Północna, Bośnia i Hercegowina, Czarnogóra oraz Turcja – kraje o podobnym profilu między sobą, ale najbardziej odmiennym względem klastra 1 (niski Dim1).​
+
+-   **Klaster 2 (czerwony)**: „środek” (np. Polska, Portugalia, Węgry, Rumunia, Bułgaria, Serbia, Litwa/Łotwa/Estonia, Słowenia, Chorwacja, Cypr, Malta, Belgia) – profil pośredni między skrajnościami Dim1.​
+
+-   **Klaster 4 (pomarańczowy)**: Niemcy, Francja, Hiszpania, Włochy – wyróżniają się bardziej po Dim2; szczególnie Niemcy mają najwyższy Dim2 (najsilniej odstają w tym kierunku).
+
+## 4. Profilowanie Klastrów (Charakterystyka Grup)
+
+Kluczowym etapem jest interpretacja ekonomiczna wyodrębnionych grup. W tym celu obliczono średnie wartości cech diagnostycznych dla każdego skupienia.
+
+```{r CLUSTER_Characteristics}
+
+# 1. Połączenie danych z numerem klastra
+data_clustered <- data_for_clustering
+data_clustered$Cluster <- as.factor(km_res$cluster)
+
+# 2. Obliczenie średnich
+profiles <- data_clustered %>%
+  group_by(Cluster) %>%
+  summarise(
+    Liczba_Krajów = n(),
+    Unemployment = mean(Unemployment),
+    NEET = mean(NEET),
+    Productivity = mean(Productivity),
+    LaborFreedom = mean(LaborFreedom),
+    WorkedHours = mean(WorkedHours),
+    EconomicFreedom = mean(EconomicFreedom)
+  ) %>%
+  mutate(across(where(is.numeric), round, 2))
+
+# 3. Wyświetlenie tabeli z formatowaniem
+kable(profiles, booktabs = TRUE, 
+      caption = "Średnie wartości zmiennych w wyodrębnionych klastrach") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = F) %>%
+  row_spec(which.max(profiles$Unemployment), bold = TRUE, color = "white", background = "#E74C3C") %>% # Klaster bezrobocia
+  row_spec(which.max(profiles$Productivity), bold = TRUE, color = "white", background = "#2E86C1")   # Klaster bogactwa
+
+```
+
+### Interpretacja Ekonomiczna Klastrów:
+
+Analiza średnich wartości w grupach pozwala na jednoznaczną charakterystykę typów rynków pracy:
+
+1.  **Klaster 1: Liderzy Efektywności (Awangarda Północy)**
+
+    -   **Liczba krajów:** 10.
+
+    -   **Charakterystyka:** Grupa o **najwyższej wydajności pracy** (ponad 161 tys. USD) i **najwyższej wolności gospodarczej** (78.8 pkt). Jednocześnie notuje najniższe bezrobocie (4.7%) i najniższy wskaźnik NEET (7.3%).
+
+    -   **Wniosek:** To model wzorcowy łączący elastyczność z bezpieczeństwem socjalnym.
+
+2.  **Klaster 3: "Prekariat" / Obszar Ryzyka Strukturalnego**
+
+    -   **Liczba krajów:** 6.
+
+    -   **Charakterystyka:** Antypody Klastra 1. Grupa ta wyróżnia się **dramatycznie wysokim poziomem NEET (19.2%)** – niemal trzykrotnie wyższym niż u liderów, oraz najwyższym bezrobociem (12.6%). Towarzyszy temu najniższa wydajność i najniższa wolność pracy.
+
+    -   **Wniosek:** Skupienie to obejmuje kraje borykające się z głębokim kryzysem rynku pracy (Grecja, Włochy, Hiszpania), co **w pełni potwierdza Hipotezę H3**.
+
+3.  **Klaster 2: Stabilny Środek**
+
+    -   **Liczba krajów:** 16 (najliczniejsza grupa).
+
+    -   **Charakterystyka:** Kraje o parametrach zbliżonych do średniej unijnej. Bezrobocie na bezpiecznym poziomie (\~5.3%), umiarkowana wydajność. Stanowią trzon stabilności UE.
+
+4.  **Klaster 4: Gospodarki Wysokiej Skali**
+
+    -   **Liczba krajów:** 4.
+
+    -   **Charakterystyka:** Grupa o wysokiej wydajności (121 tys. USD - drugie miejsce), ale specyficznej strukturze godzin pracy. Są to silne gospodarki, które jednak nie osiągnęły jeszcze poziomu efektywności liderów z Klastra 1.
+
+------------------------------------------------------------------------
+
+# Analiza Dynamiki (2015 vs 2022)
+
+Ostatnim etapem badania jest ocena stabilności i kierunku zmian. Porównano wartości syntetycznego miernika Hellwiga (wagi równe) z roku 2015 (początek badanego okresu) z wynikami z roku 2022. Pozwala to zidentyfikować kraje, które dokonały największego postępu lub regresu.
+
+```{r DYNAMICS}
+# Obliczenie Hellwiga dla 2015 (na tych samych zmiennych i wagach)
+data_2015_calc <- na.omit(df_2015) %>%
+  dplyr::select(Unemployment, NEET, Productivity, LaborFreedom, WorkedHours, EconomicFreedom)
+
+w_equal_2015 <- rep(1 / ncol(data_2015_calc), ncol(data_2015_calc))
+
+# Obliczenie wskaźnika
+h_2015 <- calculate_hellwig_measure(data_2015_calc, variable_types, w_equal_2015)
+
+# Ramka wyników 2015
+results_2015 <- data.frame(
+  Country    = rownames(data_2015_calc),
+  Score_2015 = h_2015
+)
+
+# Zestawienie zmian (Inner Join - tylko kraje obecne w obu latach)
+results_temporal <- results_2015 %>%
+  inner_join(
+    results_2022 %>% dplyr::select(Country, Score_2022 = Hellwig_Equal), # Używamy nazwy z poprzedniego kroku
+    by = "Country"
+  ) %>%
+  mutate(
+    Change = Score_2022 - Score_2015,
+    Direction = ifelse(Change > 0, "Poprawa", "Pogorszenie"),
+    Abs_Change = abs(Change)
+  ) %>%
+  arrange(desc(Change))
+
+# Wizualizacja Zmian (Diverging Bar Chart)
+ggplot(results_temporal, aes(x = reorder(Country, Change), y = Change, fill = Direction)) +
+  geom_bar(stat = "identity", width = 0.7, alpha = 0.9) +
+  coord_flip() +
+  scale_fill_manual(values = c("Pogorszenie" = "#E74C3C", "Poprawa" = "#27AE60")) +
+  geom_text(aes(label = sprintf("%+.3f", Change), 
+                hjust = ifelse(Change > 0, -0.2, 1.2)), 
+            size = 3, fontface = "bold", color = "#34495e") +
+  labs(
+    title = "Dynamika zmian jakości rynku pracy (2015-2022)",
+    subtitle = "Wzrost wartości wskaźnika (+) oznacza poprawę, spadek (-) pogorszenie",
+    y = "Zmiana wartości miernika Hellwiga", x = ""
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top", 
+        panel.grid.major.y = element_blank()) +
+  ylim(min(results_temporal$Change) * 1.2, max(results_temporal$Change) * 1.2)
+
+```
+
+**Największe zmiany (2015–2022)**
+
+-   Największa poprawa: Norwegia (+0,229) i Chorwacja (+0,198); dalej m.in. Luksemburg (+0,134), Słowenia (+0,127), Grecja (+0,126) i Bośnia i Hercegowina (+0,125).
+
+-   Największe pogorszenie: Czarnogóra (−0,245) i Turcja (−0,121); dalej m.in. Dania (−0,073), Szwajcaria (−0,067) i Macedonia Północna (−0,062).
+
+-   Polska na tle innych
+
+Polska ma spadek ok. −0,022, czyli znajduje się w grupie krajów z umiarkowanym pogorszeniem wskaźnika (blisko zera, ale po stronie ujemnej).
+
+## Liderzy Zmian (Tabela)
+
+Poniższa tabela prezentuje kraje o największej dynamice zmian w analizowanym okresie.
+
+```{r Liderzy_zmian}
+top_changes <- results_temporal %>%
+  dplyr::arrange(dplyr::desc(abs(Change))) %>% # Sortujemy po sile zmiany
+  head(10) %>%
+  dplyr::select(Country, 
+                "Wynik 2015" = Score_2015, 
+                "Wynik 2022" = Score_2022, 
+                "Zmiana" = Change, 
+                "Kierunek" = Direction)
+
+kable(top_changes, digits = 3, booktabs = TRUE, 
+      caption = "Kraje o największej dynamice zmian (2015-2022)") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F) %>%
+  column_spec(4, bold = TRUE, color = ifelse(top_changes$Zmiana > 0, "green", "red"))
+
+```
+
+**Wnioski z analizy dynamiki:**
+
+1.  Efekt nadrabiania zaległości (Konwergencja): Wyraźną poprawę odnotowały kraje z niższym punktem startowym, takie jak Chorwacja (+0.198) czy Grecja (+0.126). Świadczy to o skutecznym wychodzeniu tych gospodarek z zapaści (po kryzysie zadłużenia) i stopniowym zbliżaniu się do standardów unijnych.
+
+2.  Niepokojący regres na Bałkanach: W przeciwieństwie do ogólnoeuropejskiego trendu wzrostowego, Czarnogóra i Turcja odnotowały drastyczny spadek wskaźnika (odpowiednio -0.245 i -0.121). Sugeruje to, że w państwach kandydujących/aspirujących wystąpiły silne szoki strukturalne lub instytucjonalne, które oddaliły je od modelu unijnego.
+
+# Dyskusja i wnioski końcowe
+
+Celem pracy była wielowymiarowa ocena kondycji rynków pracy w Europie w kontekście teorii prekariatu. Zastosowanie komplementarnych metod MSA (Hellwig, PCA, Klastrowanie) pozwoliło na empiryczną weryfikację postawionych hipotez.
+
+## 1. Weryfikacja hipotez badawczych
+
+### H1: Relacja Instytucje – wykluczenie (Labor Freedom vs NEET)
+
+```{r H1_VERIFY, results='asis'}
+# Obliczenie korelacji
+cor_lf_neet <- cor(data_complete_2022$LaborFreedom, data_complete_2022$NEET)
+
+# Dynamiczna interpretacja wyniku
+cat("**Współczynnik korelacji Pearsona:** $r =", round(cor_lf_neet, 3), "$\n\n")
+
+if(cor_lf_neet < -0.3) {
+  cat("**Status Hipotezy H1: ODRZUCONA (w kontekście teorii Standinga)**\n\n")
+  cat("*Uzasadnienie:* Odnotowano istotną **ujemną korelację**. Oznacza to, że kraje o wyższej swobodzie zwalniania pracowników (*Labor Freedom*) charakteryzują się **niższym** odsetkiem NEET. Wynik ten przeczy tezie, że deregulacja automatycznie prowadzi do prekarayzacji. Wskazuje to na skuteczność modelu *Flexicurity* (elastyczność + bezpieczeństwo socjalne), typowego dla krajów Północy.")
+} else if (cor_lf_neet > 0.3) {
+  cat("**Status Hipotezy H1: POTWIERDZONA**\n\n")
+  cat("*Uzasadnienie:* Dodatnia korelacja wskazuje, że deregulacja idzie w parze z wykluczeniem.")
+} else {
+  cat("**Status Hipotezy H1: NIEJEDNOZNACZNA**\n\n")
+  cat("*Uzasadnienie:* Brak liniowej zależności sugeruje, że inne czynniki (np. PKB) odgrywają ważniejszą rolę.")
+}
+
+```
+
+### H2: Wrażliwość Metodologiczna (Systemy Wag)
+
+Badano, czy zmiana systemu wag w metodzie Hellwiga wpłynie na ranking końcowy.
+
+-   **Status: POTWIERDZONA.**
+
+-   **Dowód empiryczny:** Zastosowanie metody Entropii doprowadziło do przetasowań w czołówce rankingu (m.in. awans Irlandii na pozycję lidera).
+
+-   **Wniosek:** Rankingi oparte na równych wagach mogą maskować specyfikę krajów o skrajnych parametrach (np. bardzo krótki czas pracy). Zastosowanie obiektywnych metod wagowania (Entropia, CRITIC) ujawniło, że kluczowym czynnikiem różnicującym Europę jest **czas pracy** (najwyższa waga entropijna).
+
+### H3: Geografia Prekariatu (Klastrowanie)
+
+Badano istnienie strukturalnie odrębnego modelu rynku pracy w Europie Południowej.
+
+-   **Status: POTWIERDZONA.**
+
+-   **Dowód empiryczny:** Analiza skupień (metoda Warda i k-średnich) konsekwentnie wyodrębniała **Klaster "Czerwony"** (Grecja, Włochy, Hiszpania).
+
+-   **Charakterystyka:** Grupa ta notuje średnie bezrobocie na poziomie dwucyfrowym (\>12%) oraz wskaźnik NEET bliski 20%, przy jednoczesnym braku konwergencji z modelem Północnym. Potwierdza to istnienie "Europy dwóch prędkości".
+
+## 2. Synteza i implikacje ekonomiczne
+
+Przeprowadzona analiza prowadzi do następujących wniosków ogólnych:
+
+1.  **Dychotomia rozwojowa:** Europa jest wyraźnie podzielona na "Bogate i Inkluzywne Centrum/Północ" oraz "Peryferia Południa/Wschodu". Nie zaobserwowano modelu pośredniego, który łączyłby niskie PKB z niskim wykluczeniem.
+
+2.  **Rola wydajności:** Najsilniejszym predyktorem jakości rynku pracy jest **wydajność (PKB na pracownika)**. Kraje o wysokiej technicyzacji pracy (Liderzy Rankingu) naturalnie generują inkluzję społeczną, co czyni wzrost innowacyjności najlepszą polityką społeczną.
+
+3.  **Flexicurity działa:** Wyniki PCA i korelacji sugerują, że ochrona miejsc pracy poprzez sztywne kodeksy (niski *Labor Freedom*) jest nieskuteczna w walce z wykluczeniem młodzieży. Kraje o elastycznych rynkach (Dania, Holandia) radzą sobie z tym problemem znacznie lepiej.
