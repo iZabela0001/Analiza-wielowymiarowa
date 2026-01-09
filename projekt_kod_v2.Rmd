@@ -385,7 +385,7 @@ W analizowanej próbie nie odnotowano par zmiennych o korelacji bliskiej jednoś
 
 2\. Spójność ekonomiczna (Productivity vs. Unemployment)
 
-Zauważalna jest silna, ujemna korelacja między wydajnością pracy (\$X_3\$) a stopą bezrobocia (\$X_1\$) oraz wskaźnikiem NEET (\$X_2\$).
+Zauważalna jest silna, ujemna korelacja między wydajnością pracy ($X_3$) a stopą bezrobocia ($X_1$) oraz wskaźnikiem NEET ($X_2$).
 
 -   **Wniosek:** Potwierdza to makroekonomiczną prawidłowość, że gospodarki wysokowydajne (High-Tech) skuteczniej absorbują zasoby siły roboczej, generując niższe wykluczenie.
 
@@ -1012,13 +1012,13 @@ kable(top_changes, digits = 3, booktabs = TRUE,
 
 2.  Niepokojący regres na Bałkanach: W przeciwieństwie do ogólnoeuropejskiego trendu wzrostowego, Czarnogóra i Turcja odnotowały drastyczny spadek wskaźnika (odpowiednio -0.245 i -0.121). Sugeruje to, że w państwach kandydujących/aspirujących wystąpiły silne szoki strukturalne lub instytucjonalne, które oddaliły je od modelu unijnego.
 
-# Dyskusja i Wnioski Końcowe
+# Dyskusja i wnioski końcowe
 
 Celem pracy była wielowymiarowa ocena kondycji rynków pracy w Europie w kontekście teorii prekariatu. Zastosowanie komplementarnych metod MSA (Hellwig, PCA, Klastrowanie) pozwoliło na empiryczną weryfikację postawionych hipotez.
 
-## 1. Weryfikacja Hipotez Badawczych
+## 1. Weryfikacja hipotez badawczych
 
-### H1: Relacja Instytucje – Wykluczenie (Labor Freedom vs NEET)
+### H1: Relacja Instytucje – wykluczenie (Labor Freedom vs NEET)
 
 ```{r H1_VERIFY, results='asis'}
 # Obliczenie korelacji
