@@ -1,2 +1,1 @@
-# Analiza-wielowymiarowa
-Repo do kursu z analizy wielowymiarowej. Temat projektu: Jakość pracy i wykluczenie na europejskich rynkach pracy
+# Ostateczny plik z kodem do oddania: projekt_kod_v2.Rmd
